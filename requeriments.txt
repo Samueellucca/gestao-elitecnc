@@ -1,4 +1,7 @@
 streamlit
 pandas
-sqlalchemy
 plotly
+sqlalchemy
+streamlit-authenticator
+PyYAML
+bcrypt
