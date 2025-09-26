@@ -20,11 +20,12 @@ class PDF(FPDF):
         empresa_razao_social = "Elite CNC Service"
         empresa_cnpj = "CNPJ: 61.159.425/0001-32"
         empresa_endereco = "Rua da Paz, 230 - Santa Rita - Monte Alto SP"
-        empresa_contato = "Tel: (11) 97761-7009 | Email: elitecncservice@gmail.com"
+        empresa_contato = "Tel: (11) 97761-7009 / (16) 99765-3334" 
+        empresa_contato ="Email: elitecncservice@gmail.com"
         empresa_site = "www.elitecncservice.com.br"
         
         try:
-            self.image('logo.png', 10, 8, 50)
+            self.image('logo.png', 10, 1, 50)
         except FileNotFoundError:
             self.set_xy(10, 8)
             self.set_font('Arial', 'B', 12) 
@@ -78,13 +79,11 @@ def enviar_pdf_por_email(destinatario, assunto, corpo, dados_pdf, nome_arquivo_p
         st.error("Verifique as credenciais em secrets.toml e sua Senha de App.")
         return False
 
-# --- FUNÇÃO PARA CARREGAR DADOS (COM CONSULTA CORRIGIDA) ---
+# --- FUNÇÃO PARA CARREGAR DADOS ---
 @st.cache_data
 def carregar_dados_completos():
     try:
-        # CORREÇÃO: Removido "rowid as id" para usar a coluna "id" que já existe
-        query = "SELECT * FROM entradas"
-        entradas_df = pd.read_sql(query, engine, parse_dates=['data'])
+        entradas_df = pd.read_sql("SELECT * FROM entradas", engine, parse_dates=['data'])
         clientes_df = pd.read_sql("SELECT nome, telefone, email, endereco FROM clientes", engine)
         
         if not entradas_df.empty:
@@ -100,12 +99,15 @@ df_os = carregar_dados_completos()
 
 if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_servico'].isnull().all():
     df_os_validas = df_os.dropna(subset=['ordem_servico']).copy()
+
     df_os_validas['display'] = df_os_validas.apply(
-        lambda row: f"O.S. {row['ordem_servico']} - {row['cliente']} ({row['data'].strftime('%d/%m/%Y')})", axis=1
+        lambda row: f"O.S. {row['ordem_servico']} - {row['cliente']} ({(row['data'].strftime('%d/%m/%Y') if pd.notnull(row['data']) else 'Data N/A')})",
+        axis=1
     )
     
     os_selecionada_display = st.selectbox(
-        "Selecione a Ordem de Serviço:", options=[""] + df_os_validas['display'].tolist()
+        "Selecione a Ordem de Serviço:",
+        options=[""] + df_os_validas['display'].tolist()
     )
 
     if os_selecionada_display:
@@ -124,7 +126,6 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
             st.error("Arquivos de fonte (DejaVu) não encontrados.")
         
         pdf.add_page()
-        # ... (restante do código de preenchimento do PDF) ...
         pdf.set_auto_page_break(auto=True, margin=15)
         y_inicial_colunas = pdf.get_y()
         pdf.set_font('DejaVu', 'B', 12)
@@ -142,10 +143,20 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         pdf.ln(2)
         pdf.set_x(105)
         pdf.set_font('DejaVu', '', 10)
+        
+        # --- BLOCO CORRIGIDO ---
+        # Cria variáveis para a data formatada, tratando o caso de data nula
+        data_servico_str = (
+            os_details['data'].strftime('%d/%m/%Y')
+            if pd.notnull(os_details.get('data'))
+            else 'Data N/A'
+        )
         pdf.multi_cell(95, 6, f"Nº da O.S.: {os_details.get('ordem_servico', 'N/A')}\n"
-                             f"Data: {os_details.get('data', pd.Timestamp.now()).strftime('%d/%m/%Y')}\n"
+                             f"Data: {data_servico_str}\n"
                              f"Início: {os_details.get('hora_inicio', 'N/A')}\n"
                              f"Fim: {os_details.get('hora_fim', 'N/A')}")
+        # ----------------------
+
         y_final_coluna_direita = pdf.get_y()
         pdf.set_y(max(y_final_coluna_esquerda, y_final_coluna_direita) + 5)
         pdf.set_font('DejaVu', 'B', 12)
@@ -180,7 +191,7 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         
         pdf_bytes = bytes(pdf.output())
         nome_arquivo = f"Relatorio_OS_{os_details.get('ordem_servico', 'N_A')}.pdf"
-
+        
         st.subheader("Ações do Relatório")
         col1, col2 = st.columns(2)
         
@@ -208,6 +219,5 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
             else:
                 st.button("✉️ Enviar por Email", use_container_width=True, disabled=True)
                 st.caption("Cliente sem email cadastrado.")
-
 else:
     st.info("Nenhuma Ordem de Serviço válida foi encontrada para gerar relatórios.")

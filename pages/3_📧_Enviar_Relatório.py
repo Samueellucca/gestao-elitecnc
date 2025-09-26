@@ -6,7 +6,6 @@ import re
 import smtplib
 from email.message import EmailMessage
 
-# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
 st.set_page_config(page_title="Enviar Relatório", page_icon="📧", layout="centered")
 st.title("📧 Enviar Relatório de O.S.")
 st.write("Selecione uma Ordem de Serviço abaixo para gerar a mensagem de envio para o cliente.")
@@ -14,7 +13,6 @@ st.write("Selecione uma Ordem de Serviço abaixo para gerar a mensagem de envio 
 DB_FILE = "financeiro.db"
 engine = create_engine(f'sqlite:///{DB_FILE}')
 
-# --- FUNÇÃO PARA ENVIAR EMAIL ---
 def enviar_email(destinatario, assunto, corpo_mensagem):
     try:
         remetente = st.secrets["email_credentials"]["username"]
@@ -34,67 +32,62 @@ def enviar_email(destinatario, assunto, corpo_mensagem):
         st.error("Verifique as credenciais em secrets.toml e sua Senha de App.")
         return False
 
-# --- FUNÇÃO PARA CARREGAR DADOS ---
 @st.cache_data
-def carregar_dados_completos():
+def carregar_os_e_clientes():
     try:
-        entradas_df = pd.read_sql("SELECT rowid as id, * FROM entradas", engine, parse_dates=['data'])
-        clientes_df = pd.read_sql("SELECT nome, telefone, email FROM clientes", engine)
-        
-        clientes_df.rename(columns={'nome': 'cliente'}, inplace=True)
-        
-        if not entradas_df.empty:
-            if 'cliente' in entradas_df.columns:
-                merged_df = pd.merge(entradas_df, clientes_df, on='cliente', how='left')
-                return merged_df
-            else:
-                return entradas_df
-        return pd.DataFrame()
+        # CORREÇÃO: Voltamos a usar "e.rowid as id"
+        query = """
+        SELECT 
+            e.rowid as id, 
+            e.ordem_servico, 
+            e.cliente, 
+            e.data,
+            e.descricao_servico,
+            e.valor_atendimento,
+            c.telefone,
+            c.email
+        FROM entradas e
+        LEFT JOIN clientes c ON e.cliente = c.nome
+        ORDER BY e.data DESC
+        """
+        df = pd.read_sql_query(query, engine, parse_dates=['data'])
+        return df
     except Exception as e:
-        st.error(f"Ocorreu um erro crítico ao buscar os dados: {e}")
+        st.error(f"Ocorreu um erro ao buscar os dados: {e}")
         return pd.DataFrame()
 
-df_os = carregar_dados_completos()
+df_os = carregar_os_e_clientes()
 
-if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_servico'].isnull().all():
-    df_os_validas = df_os.dropna(subset=['ordem_servico']).copy()
-
-    df_os_validas['display'] = df_os_validas.apply(
-        lambda row: f"O.S. {row['ordem_servico']} - {row['cliente']} ({row['data'].strftime('%d/%m/%Y')})",
+if not df_os.empty:
+    df_os['display'] = df_os.apply(
+        lambda row: f"O.S. {row['ordem_servico']} - {row['cliente']} ({(row['data'].strftime('%d/%m/%Y') if pd.notnull(row['data']) else 'Data N/A')})",
         axis=1
     )
     
     os_selecionada_display = st.selectbox(
         "Selecione a Ordem de Serviço que deseja enviar:",
-        options=[""] + df_os_validas['display'].tolist()
+        options=[""] + df_os['display'].tolist()
     )
 
     if os_selecionada_display:
-        os_details = df_os_validas[df_os_validas['display'] == os_selecionada_display].iloc[0]
+        os_details = df_os[df_os['display'] == os_selecionada_display].iloc[0]
 
         st.markdown("---")
         st.subheader("Resumo da Ordem de Serviço")
 
-        # --- NOVA MENSAGEM PERSONALIZADA ---
-        
-        # Pega as variáveis para usar na mensagem
-        cliente_nome = os_details.get('cliente', 'Cliente')
-        dia_servico = os_details.get('data', pd.Timestamp.now()).strftime('%d/%m/%Y')
-        hora_servico = os_details.get('data', pd.Timestamp.now()).strftime('%H:%M')
-        os_numero = os_details.get('ordem_servico', 'N/A')
-        servico_realizado = os_details.get('descricao_servico', 'Serviço não detalhado.')
         valor_formatado = f"R$ {os_details.get('valor_atendimento', 0):.2f}".replace('.', ',')
+        data_formatada = os_details['data'].strftime('%d/%m/%Y') if pd.notnull(os_details['data']) else 'N/A'
+        hora_formatada = os_details['data'].strftime('%H:%M') if pd.notnull(os_details['data']) else 'N/A'
 
-        # Monta a nova mensagem
-        mensagem = f"""Prezado(a) {cliente_nome},
+        mensagem = f"""Prezado(a) {os_details.get('cliente')},
 
-Segue um resumo da sua Ordem de Serviço realizado dia {dia_servico} às {hora_servico}.
+Segue um resumo da sua Ordem de Serviço realizado dia {data_formatada} às {hora_formatada}.
 
 Qualquer duvida estou a disposição.
 
-- *O.S. Nº:* {os_numero}
-- *Data:* {dia_servico}
-- *Serviço Realizado:* {servico_realizado}
+- *O.S. Nº:* {os_details.get('ordem_servico')}
+- *Data:* {data_formatada}
+- *Serviço Realizado:* {os_details.get('descricao_servico')}
 
 - *Valor Total:* {valor_formatado}
 """
