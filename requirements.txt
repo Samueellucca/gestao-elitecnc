@@ -7,3 +7,4 @@ PyYAML
 bcrypt
 fpdf2
 holidays
+openpyxl
