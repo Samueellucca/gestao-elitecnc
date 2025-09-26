@@ -1,9 +1,8 @@
 streamlit
 pandas
 plotly
-sqlalchemy
 streamlit-authenticator
 PyYAML
 bcrypt
-fpdf
+fpdf2
 holidays
