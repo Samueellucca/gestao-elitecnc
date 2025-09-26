@@ -37,13 +37,15 @@ def carregar_os_e_clientes():
     try:
         # CORREÇÃO: Voltamos a usar "e.rowid as id"
         query = """
-        SELECT 
+         SELECT 
             e.rowid as id, 
             e.ordem_servico, 
             e.cliente, 
             e.data,
             e.descricao_servico,
             e.valor_atendimento,
+            e.patrimonio,
+            e.maquina,
             c.telefone,
             c.email
         FROM entradas e
@@ -87,6 +89,8 @@ Qualquer duvida estou a disposição.
 
 - *O.S. Nº:* {os_details.get('ordem_servico')}
 - *Data:* {data_formatada}
+- *Máquina:* {os_details.get('maquina', 'N/A')}
+- *Patrimônio:* {os_details.get('patrimonio', 'N/A')}
 - *Serviço Realizado:* {os_details.get('descricao_servico')}
 
 - *Valor Total:* {valor_formatado}

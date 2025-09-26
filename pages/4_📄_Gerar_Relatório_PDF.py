@@ -20,8 +20,7 @@ class PDF(FPDF):
         empresa_razao_social = "Elite CNC Service"
         empresa_cnpj = "CNPJ: 61.159.425/0001-32"
         empresa_endereco = "Rua da Paz, 230 - Santa Rita - Monte Alto SP"
-        empresa_contato = "Tel: (11) 97761-7009 / (16) 99765-3334" 
-        empresa_contato ="Email: elitecncservice@gmail.com"
+        empresa_contato = "Tel: (11) 97761-7009 | Email: elitecncservice@gmail.com"    
         empresa_site = "www.elitecncservice.com.br"
         
         try:
@@ -153,6 +152,8 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         )
         pdf.multi_cell(95, 6, f"Nº da O.S.: {os_details.get('ordem_servico', 'N/A')}\n"
                              f"Data: {data_servico_str}\n"
+                             f"Máquina: {os_details.get('maquina', 'N/A')}\n"
+                             f"Patrimônio: {os_details.get('patrimonio', 'N/A')}\n"
                              f"Início: {os_details.get('hora_inicio', 'N/A')}\n"
                              f"Fim: {os_details.get('hora_fim', 'N/A')}")
         # ----------------------
