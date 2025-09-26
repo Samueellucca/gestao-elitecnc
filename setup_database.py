@@ -1,10 +1,8 @@
-# setup_database.py (Versão com Hora de Início/Fim)
 import sqlite3
 
 DB_FILE = "financeiro.db"
 
 def get_table_columns(cursor, table_name):
-    """Retorna uma lista com os nomes das colunas de uma tabela."""
     try:
         cursor.execute(f"PRAGMA table_info({table_name});")
         return [row[1] for row in cursor.fetchall()]
@@ -29,10 +27,13 @@ CREATE TABLE IF NOT EXISTS entradas (
     refeicao REAL,
     pecas REAL,
     hora_inicio TEXT,
-    hora_fim TEXT
+    hora_fim TEXT,
+    patrimonio TEXT,
+    maquina TEXT
 );
 """)
 
+# ... (outras tabelas permanecem iguais)
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS saidas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +43,6 @@ CREATE TABLE IF NOT EXISTS saidas (
     valor REAL
 );
 """)
-
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS clientes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,8 +59,10 @@ colunas_entradas = {
     "pedagio": "REAL",
     "cliente": "TEXT",
     "horas_tecnicas_100": "REAL",
-    "hora_inicio": "TEXT",      # <-- ADICIONADO AQUI
-    "hora_fim": "TEXT"          # <-- E AQUI
+    "hora_inicio": "TEXT",
+    "hora_fim": "TEXT",
+    "patrimonio": "TEXT",  # <-- ADICIONADO
+    "maquina": "TEXT"      # <-- ADICIONADO
 }
 colunas_existentes_entradas = get_table_columns(cursor, 'entradas')
 for col, tipo in colunas_entradas.items():
@@ -68,9 +70,7 @@ for col, tipo in colunas_entradas.items():
         cursor.execute(f"ALTER TABLE entradas ADD COLUMN {col} {tipo};")
         print(f"Coluna '{col}' adicionada à tabela 'entradas'.")
 
-colunas_saidas = {
-    "usuario_lancamento": "TEXT"
-}
+colunas_saidas = { "usuario_lancamento": "TEXT" }
 colunas_existentes_saidas = get_table_columns(cursor, 'saidas')
 for col, tipo in colunas_saidas.items():
     if col not in colunas_existentes_saidas:
