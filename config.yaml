@@ -1,12 +1,23 @@
 credentials:
   usernames:
-    # Substitua 'samuel' pelo nome de usuário que você quer
+    # Seu usuário com a nova senha master criptografada
     samuel:
       email: samukatas@gmail.com
       name: Samuel
-      # Cole a senha HASHED que você gerou no passo anterior AQUI
       password: 'Elitecnc@2025'
+
+    # Novos usuários com a mesma senha master
+    rafael:
+      email: rafael.elitecncservice@gmail.com
+      name: Rafael
+      password: 'Elitecnc@2025'
+
+    filipe:
+      email: filipe.guimaraes@icloud.com
+      name: Filipe
+      password: 'Elitecnc@2025'
+            
 cookie:
   expiry_days: 30
-  key: alguma_chave_secreta_aleatoria # Pode ser qualquer texto
+  key: alguma_chave_secreta_aleatoria
   name: algum_nome_de_cookie_aleatorio
