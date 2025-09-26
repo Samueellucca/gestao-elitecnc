@@ -27,44 +27,25 @@ authenticator = stauth.Authenticate(
 # --- TELA DE LOGIN ---
 authenticator.login()
 
-if st.session_state.get("authentication_status"):
+if st.session_state["authentication_status"]:
     # --- APLICAÇÃO PRINCIPAL ---
     DB_FILE = "financeiro.db"
     engine = create_engine(f'sqlite:///{DB_FILE}')
 
-    name = st.session_state.get("name", "")
-    username = st.session_state.get("username", "")
+    name = st.session_state["name"]
+    username = st.session_state["username"]
 
     # --- FUNÇÕES DE BANCO DE DADOS ---
     @st.cache_data
     def carregar_dados():
         try:
-            # Lê a tabela considerando que a tabela tem coluna 'id' (PK) e 'data' armazenada como TEXT/ISO
-            entradas_df = pd.read_sql_query("SELECT * FROM entradas", engine, parse_dates=['data'])
-            # garante que exista coluna 'id' (compatibilidade com versões antigas que usavam rowid)
-            if 'id' not in entradas_df.columns:
-                entradas_df.reset_index(inplace=True)
-                entradas_df.rename(columns={'index': 'id'}, inplace=True)
-        except Exception as e:
-            entradas_df = pd.DataFrame(columns=[
-                'id','data','ordem_servico','valor_atendimento','horas_tecnicas','horas_tecnicas_50',
-                'horas_tecnicas_100','km','refeicao','pecas','hora_inicio','hora_fim',
-                'patrimonio','maquina','descricao_servico','cliente','pedagio','usuario_lancamento'
-            ])
+            entradas_df = pd.read_sql_query("SELECT rowid as id, * FROM entradas", engine, parse_dates=['data'])
+        except Exception:
+            entradas_df = pd.DataFrame(columns=['id'])
         try:
-            saidas_df = pd.read_sql_query("SELECT * FROM saidas", engine, parse_dates=['data'])
-            if 'id' not in saidas_df.columns:
-                saidas_df.reset_index(inplace=True)
-                saidas_df.rename(columns={'index': 'id'}, inplace=True)
-        except Exception as e:
-            saidas_df = pd.DataFrame(columns=['id','data','tipo_conta','descricao','valor','usuario_lancamento'])
-
-        # forçar conversão da coluna data para datetime quando possível
-        if not entradas_df.empty and 'data' in entradas_df.columns:
-            entradas_df['data'] = pd.to_datetime(entradas_df['data'], errors='coerce')
-        if not saidas_df.empty and 'data' in saidas_df.columns:
-            saidas_df['data'] = pd.to_datetime(saidas_df['data'], errors='coerce')
-
+            saidas_df = pd.read_sql_query("SELECT rowid as id, * FROM saidas", engine, parse_dates=['data'])
+        except Exception:
+            saidas_df = pd.DataFrame(columns=['id'])
         return entradas_df, saidas_df
 
     def carregar_clientes():
@@ -75,33 +56,21 @@ if st.session_state.get("authentication_status"):
             except:
                 return [""]
 
-    def deletar_lancamento(tabela, record_id):
+    def deletar_lancamento(tabela, rowid):
         with engine.connect() as con:
-            con.execute(text(f"DELETE FROM {tabela} WHERE id = :id"), {"id": record_id})
+            con.execute(text(f"DELETE FROM {tabela} WHERE rowid = :id"), {"id": rowid})
             con.commit()
 
-    def atualizar_lancamento(tabela, record_id, dados):
+    def atualizar_lancamento(tabela, rowid, dados):
         with engine.connect() as con:
-            # monta set_clause sem incluir 'id'
-            dados_copy = {k: v for k, v in dados.items() if k != 'id'}
-            set_clause = ", ".join([f"\"{key}\" = :{key}" for key in dados_copy.keys()])
-            dados_copy['id'] = record_id
-            con.execute(text(f"UPDATE {tabela} SET {set_clause} WHERE id = :id"), dados_copy)
+            set_clause = ", ".join([f"\"{key}\" = :{key}" for key in dados.keys()])
+            dados['id'] = rowid
+            con.execute(text(f"UPDATE {tabela} SET {set_clause} WHERE rowid = :id"), dados)
             con.commit()
 
     # --- CARREGANDO DADOS E CLIENTES ---
     entradas_df, saidas_df = carregar_dados()
     clientes_cadastrados = carregar_clientes()
-
-    # --- DEBUG: mostra o conteúdo carregado (temporário) ---
-    st.sidebar.subheader("DEBUG (apenas leitura)")
-    st.sidebar.write("Entradas - dtypes:")
-    st.sidebar.write(entradas_df.dtypes if not entradas_df.empty else "Sem entradas carregadas")
-    st.sidebar.write("Entradas - primeiras linhas:")
-    st.sidebar.write(entradas_df.head() if not entradas_df.empty else "Sem entradas carregadas")
-    st.sidebar.write("Saídas - primeiras linhas:")
-    st.sidebar.write(saidas_df.head() if not saidas_df.empty else "Sem saídas carregadas")
-    st.sidebar.markdown("---")
 
     st.sidebar.title(f'Bem-vindo(a), *{name}*')
     authenticator.logout('Sair', 'sidebar')
@@ -125,11 +94,11 @@ if st.session_state.get("authentication_status"):
     st.sidebar.header("Lançar / Editar Dados")
 
     if st.session_state.edit_id:
-        st.sidebar.info(f"Você está editando o lançamento ID: {st.session_state.edit_id} ({st.session_state.edit_table or ''})")
+        st.sidebar.info(f"Você está editando o lançamento ID: {st.session_state.edit_id} ({st.session_state.edit_table[:-1]})")
         if st.sidebar.button("Cancelar Edição"):
             st.session_state.edit_id = None
             st.session_state.edit_table = None
-            st.experimental_rerun()
+            st.rerun()
 
     is_editing_entrada = st.session_state.edit_id is not None and st.session_state.edit_table == 'entradas'
     with st.sidebar.form("form_entradas", clear_on_submit=False):
@@ -142,26 +111,24 @@ if st.session_state.get("authentication_status"):
 
         if is_editing_entrada and edit_data:
             if pd.notnull(edit_data.get('data')):
-                data_default = edit_data['data'].date() if isinstance(edit_data['data'], (pd.Timestamp, datetime)) else pd.to_datetime(edit_data['data'], errors='coerce').date()
+                data_default = edit_data['data'].date()
             if pd.notnull(edit_data.get('hora_inicio')):
                 try:
-                    hora_inicio_default = datetime.strptime(str(edit_data['hora_inicio']), '%H:%M:%S').time()
+                    hora_inicio_default = datetime.strptime(edit_data['hora_inicio'], '%H:%M:%S').time()
                 except (ValueError, TypeError):
                     hora_inicio_default = time(8, 0)
             if pd.notnull(edit_data.get('hora_fim')):
                 try:
-                    hora_fim_default = datetime.strptime(str(edit_data['hora_fim']), '%H:%M:%S').time()
+                    hora_fim_default = datetime.strptime(edit_data['hora_fim'], '%H:%M:%S').time()
                 except (ValueError, TypeError):
                     hora_fim_default = time(17,0)
         
         os_id_default = edit_data.get('ordem_servico', "") if is_editing_entrada and edit_data else ""
         descricao_servico_default = edit_data.get('descricao_servico', "") if is_editing_entrada and edit_data else ""
-        pedagio_default = float(edit_data.get('pedagio', 0.0)) if is_editing_entrada and edit_data else 0.0
-        refeicao_default = float(edit_data.get('refeicao', 0.0)) if is_editing_entrada and edit_data else 0.0
-        pecas_default = float(edit_data.get('pecas', 0.0)) if is_editing_entrada and edit_data else 0.0
+        pedagio_default = edit_data.get('pedagio', 0.0) if is_editing_entrada and edit_data else 0.0
+        refeicao_default = edit_data.get('refeicao', 0.0) if is_editing_entrada and edit_data else 0.0
+        pecas_default = edit_data.get('pecas', 0.0) if is_editing_entrada and edit_data else 0.0
         cliente_default = edit_data.get('cliente', "") if is_editing_entrada and edit_data else ""
-        patrimonio_default = edit_data.get('patrimonio', "") if is_editing_entrada and edit_data else ""
-        maquina_default = edit_data.get('maquina', "") if is_editing_entrada and edit_data else ""
 
         # --- CAMPOS DO FORMULÁRIO ---
         data_atendimento = st.date_input("Data do Atendimento", value=data_default)
@@ -170,9 +137,6 @@ if st.session_state.get("authentication_status"):
         
         cliente_index = clientes_cadastrados.index(cliente_default) if cliente_default in clientes_cadastrados else 0
         cliente = st.selectbox("Cliente", options=clientes_cadastrados, index=cliente_index)
-
-        patrimonio = st.text_input("Patrimônio", value=patrimonio_default)
-        maquina = st.text_input("Máquina", value=maquina_default)
         
         st.markdown("---")
         st.write("Cálculo de Horas")
@@ -241,9 +205,9 @@ if st.session_state.get("authentication_status"):
                 segundos_extra_100 = duracao_total_liquida_segundos
 
             # 4. Converter segundos para horas decimais
-            horas_normais = max(segundos_normais, 0) / 3600
-            horas_extra_50 = max(segundos_extra_50, 0) / 3600
-            horas_extra_100 = max(segundos_extra_100, 0) / 3600
+            horas_normais = segundos_normais / 3600
+            horas_extra_50 = segundos_extra_50 / 3600
+            horas_extra_100 = segundos_extra_100 / 3600
 
             # --- CÁLCULO FINANCEIRO ---
             valor_horas_normais = valor_hora_input * horas_normais
@@ -254,54 +218,50 @@ if st.session_state.get("authentication_status"):
             valor_atendimento_calculado = valor_horas_normais + valor_horas_50 + valor_horas_100 + valor_km_final + refeicao + pecas_entrada + pedagio
 
             dados_lancamento = {
-                'data': inicio_trabalho.isoformat(),  # salva como string ISO -> facilita leitura no SQLite
+                'data': inicio_trabalho,
                 'hora_inicio': hora_inicio.strftime('%H:%M:%S'),
                 'hora_fim': hora_fim.strftime('%H:%M:%S'),
                 'ordem_servico': os_id,
                 'descricao_servico': descricao_servico,
                 'cliente': cliente,
-                'valor_atendimento': float(valor_atendimento_calculado),
-                'horas_tecnicas': float(valor_horas_normais),
-                'horas_tecnicas_50': float(valor_horas_50),
-                'horas_tecnicas_100': float(valor_horas_100),
-                'km': float(valor_km_final),
-                'refeicao': float(refeicao),
-                'pecas': float(pecas_entrada),
-                'pedagio': float(pedagio),
-                'usuario_lancamento': username,
-                'patrimonio': patrimonio,
-                'maquina': maquina
+                'valor_atendimento': valor_atendimento_calculado,
+                'horas_tecnicas': valor_horas_normais,
+                'horas_tecnicas_50': valor_horas_50,
+                'horas_tecnicas_100': valor_horas_100,
+                'km': valor_km_final,
+                'refeicao': refeicao,
+                'pecas': pecas_entrada,
+                'pedagio': pedagio,
+                'usuario_lancamento': username
             }
 
-            if is_editing_entrada and st.session_state.edit_id:
+            if is_editing_entrada:
                 atualizar_lancamento('entradas', st.session_state.edit_id, dados_lancamento)
                 st.sidebar.success("Entrada atualizada!")
             else:
-                # inserir evitando enviar campo 'id' (AUTOINCREMENT)
-                df_insert = pd.DataFrame([dados_lancamento])
-                df_insert.to_sql('entradas', engine, if_exists='append', index=False)
+                pd.DataFrame([dados_lancamento]).to_sql('entradas', engine, if_exists='append', index=False)
                 st.sidebar.success(f"Entrada lançada!")
 
             st.session_state.edit_id, st.session_state.edit_table = None, None
             st.cache_data.clear()
-            st.experimental_rerun()
+            st.rerun()
 
-    # O restante do arquivo (formulário de saídas, painel principal, gráficos) permanece semelhante, com correções para usar 'id' ao editar/excluir
+    # O restante do arquivo (formulário de saídas, painel principal, gráficos) permanece igual
     is_editing_saida = st.session_state.edit_id is not None and st.session_state.edit_table == 'saidas'
     with st.sidebar.form("form_saidas", clear_on_submit=False):
         st.subheader("Editando Saída" if is_editing_saida else "Nova Saída")
         
         if is_editing_saida and edit_data and pd.notnull(edit_data.get('data')):
-            data_default_s = edit_data['data'].date() if isinstance(edit_data['data'], (pd.Timestamp, datetime)) else pd.to_datetime(edit_data['data'], errors='coerce').date()
-            hora_default_s = datetime.strptime(str(edit_data.get('hora_saida','00:00:00')), '%H:%M:%S').time() if edit_data.get('hora_saida') else datetime.now().time()
+            data_default_s = edit_data['data'].date()
+            hora_default_s = edit_data['data'].time()
         else:
             data_default_s = datetime.now().date()
             hora_default_s = datetime.now().time()
             
         tipo_conta_default = edit_data.get('tipo_conta', 'Fixa') if is_editing_saida and edit_data else 'Fixa'
         descricao_default = edit_data.get('descricao', "") if is_editing_saida and edit_data else ""
-        valor_default = float(edit_data.get('valor', 0.0)) if is_editing_saida and edit_data else 0.0
-        tipo_conta_index = ["Fixa", "Variável"].index(tipo_conta_default) if tipo_conta_default in ["Fixa", "Variável"] else 0
+        valor_default = edit_data.get('valor', 0.0) if is_editing_saida and edit_data else 0.0
+        tipo_conta_index = ["Fixa", "Variável"].index(tipo_conta_default)
 
         data_d_s = st.date_input("Data da Despesa", value=data_default_s, key="data_saida")
         data_t_s = st.time_input("Hora da Despesa", value=hora_default_s, key="hora_saida")
@@ -313,14 +273,14 @@ if st.session_state.get("authentication_status"):
         if submit_saida:
             data_completa_s = datetime.combine(data_d_s, data_t_s)
             dados_lancamento_s = {
-                'data': data_completa_s.isoformat(),
+                'data': data_completa_s,
                 'tipo_conta': tipo_conta,
                 'descricao': descricao_saida,
-                'valor': float(valor_saida),
+                'valor': valor_saida,
                 'usuario_lancamento': username
             }
 
-            if is_editing_saida and st.session_state.edit_id:
+            if is_editing_saida:
                 atualizar_lancamento('saidas', st.session_state.edit_id, dados_lancamento_s)
                 st.sidebar.success("Saída atualizada!")
             else:
@@ -329,7 +289,7 @@ if st.session_state.get("authentication_status"):
 
             st.session_state.edit_id, st.session_state.edit_table = None, None
             st.cache_data.clear()
-            st.experimental_rerun()
+            st.rerun()
 
     st.sidebar.header("Gerenciar Lançamentos")
     tipo_lancamento = st.sidebar.selectbox("Tipo de lançamento", ["Entrada", "Saída"])
@@ -338,12 +298,12 @@ if st.session_state.get("authentication_status"):
     if not df_gerenciar.empty:
         if tipo_lancamento == "Entrada":
             df_gerenciar['display'] = df_gerenciar.apply(
-                lambda row: f"ID {int(row['id'])}: {(pd.to_datetime(row['data']).strftime('%d/%m/%y %H:%M') if pd.notnull(row['data']) else 'Data N/A')} - O.S. {row.get('ordem_servico', 'N/A')}", 
+                lambda row: f"ID {row['id']}: {(row['data'].strftime('%d/%m/%y %H:%M') if pd.notnull(row['data']) else 'Data N/A')} - O.S. {row.get('ordem_servico', 'N/A')}", 
                 axis=1
             )
         else:
             df_gerenciar['display'] = df_gerenciar.apply(
-                lambda row: f"ID {int(row['id'])}: {(pd.to_datetime(row['data']).strftime('%d/%m/%y %H:%M') if pd.notnull(row['data']) else 'Data N/A')} - {row.get('descricao', 'N/A')}", 
+                lambda row: f"ID {row['id']}: {(row['data'].strftime('%d/%m/%y %H:%M') if pd.notnull(row['data']) else 'Data N/A')} - {row.get('descricao', 'N/A')}", 
                 axis=1
             )
 
@@ -359,13 +319,13 @@ if st.session_state.get("authentication_status"):
             if col1.button("Carregar para Edição", key=f"edit_{tipo_lancamento}"):
                 st.session_state.edit_id = id_selecionado
                 st.session_state.edit_table = 'entradas' if tipo_lancamento == "Entrada" else 'saidas'
-                st.experimental_rerun()
+                st.rerun()
 
             if col2.button("Excluir", type="primary", key=f"delete_{tipo_lancamento}"):
                 deletar_lancamento('entradas' if tipo_lancamento == "Entrada" else 'saidas', id_selecionado)
                 st.sidebar.success("Lançamento excluído!")
                 st.cache_data.clear()
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.sidebar.info(f"Nenhum(a) {tipo_lancamento.lower()} para gerenciar.")
 
@@ -378,9 +338,9 @@ if st.session_state.get("authentication_status"):
     if not entradas_df.empty or not saidas_df.empty:
         all_dates = []
         if not entradas_df.empty and 'data' in entradas_df.columns:
-            all_dates.extend(pd.to_datetime(entradas_df['data'], errors='coerce').dt.date.dropna().tolist())
+            all_dates.extend(pd.to_datetime(entradas_df['data']).dt.date.dropna())
         if not saidas_df.empty and 'data' in saidas_df.columns:
-            all_dates.extend(pd.to_datetime(saidas_df['data'], errors='coerce').dt.date.dropna().tolist())
+            all_dates.extend(pd.to_datetime(saidas_df['data']).dt.date.dropna())
         
         if all_dates:
             min_date, max_date = min(all_dates), max(all_dates)
@@ -465,7 +425,7 @@ if st.session_state.get("authentication_status"):
 
     st.markdown("---")
     st.subheader("📥 Exportar Relatório do Período")
-    if 'start_date' in locals() and start_date and end_date:
+    if start_date and end_date:
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
             entradas_filtradas.to_excel(writer, index=False, sheet_name='Entradas')
@@ -494,16 +454,14 @@ if st.session_state.get("authentication_status"):
         "ordem_servico": "Nº O.S.",
         "cliente": "Cliente",
         "hora_inicio": "Início",
-        "hora_fim": "Fim",
-        "patrimonio": "Patrimônio",
-        "maquina": "Máquina"
+        "hora_fim": "Fim"
     }
     with st.expander("Ver todas as entradas"):
         st.dataframe(entradas_df, column_config=currency_columns, use_container_width=True, hide_index=True)
     with st.expander("Ver todas as saídas"):
         st.dataframe(saidas_df, column_config=currency_columns, use_container_width=True, hide_index=True)
 
-elif st.session_state.get("authentication_status") is False:
+elif st.session_state["authentication_status"] is False:
     st.error('Usuário/senha incorreto')
-else:
+elif st.session_state["authentication_status"] is None:
     st.warning('Por favor, insira seu usuário e senha para acessar.')
