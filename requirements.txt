@@ -1,7 +1,0 @@
-streamlit
-pandas
-plotly
-sqlalchemy
-streamlit-authenticator
-PyYAML
-bcrypt
