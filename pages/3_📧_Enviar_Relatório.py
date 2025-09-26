@@ -81,11 +81,31 @@ if not df_os.empty:
         data_formatada = os_details['data'].strftime('%d/%m/%Y') if pd.notnull(os_details['data']) else 'N/A'
         hora_formatada = os_details['data'].strftime('%H:%M') if pd.notnull(os_details['data']) else 'N/A'
 
+        # BLOCO NOVO E CORRIGIDO
+        
+        # Monta a lista de detalhes do serviço dinamicamente
+        detalhes_servico = []
+        detalhes_servico.append(f"- *O.S. Nº:* {os_details.get('ordem_servico')}")
+        detalhes_servico.append(f"- *Data:* {data_formatada}")
+
+        # Adiciona máquina e patrimônio apenas se existirem
+        if os_details.get('maquina') and pd.notnull(os_details.get('maquina')):
+            detalhes_servico.append(f"- *Máquina:* {os_details.get('maquina')}")
+        if os_details.get('patrimonio') and pd.notnull(os_details.get('patrimonio')):
+            detalhes_servico.append(f"- *Patrimônio:* {os_details.get('patrimonio')}")
+        
+        detalhes_servico.append(f"- *Serviço Realizado:* {os_details.get('descricao_servico')}")
+        detalhes_servico.append(f"\n- *Valor Total:* {valor_formatado}")
+
+        # Junta as linhas em um único texto
+        corpo_detalhes = "\n".join(detalhes_servico)
+
         mensagem = f"""Prezado(a) {os_details.get('cliente')},
 
 Segue um resumo da sua Ordem de Serviço realizado dia {data_formatada} às {hora_formatada}.
 
 Qualquer duvida estou a disposição.
+
 
 - *O.S. Nº:* {os_details.get('ordem_servico')}
 - *Data:* {data_formatada}
