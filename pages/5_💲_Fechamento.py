@@ -3,6 +3,10 @@ import pandas as pd
 from sqlalchemy import create_engine
 from fpdf import FPDF
 from datetime import datetime, date
+from urllib.parse import quote
+import re
+import smtplib
+from email.message import EmailMessage
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Fechamento Mensal", page_icon="💲", layout="centered")
@@ -11,7 +15,7 @@ st.title("💲 Relatório de Fechamento por Cliente")
 DB_FILE = "financeiro.db"
 engine = create_engine(f'sqlite:///{DB_FILE}')
 
-# --- CLASSE PARA GERAR O PDF (reutilizada da página 4) ---
+# --- CLASSE PARA GERAR O PDF ---
 class PDF(FPDF):
     def header(self):
         empresa_razao_social = "Elite CNC Service"
@@ -20,7 +24,7 @@ class PDF(FPDF):
         empresa_contato = "Tel: (11) 97761-7009 | Email: elitecncservice@gmail.com"
         empresa_site = "www.elitecncservice.com.br"
         try:
-            self.image('logo.png', 10, 8, 50)
+            self.image('logo.png', 10, 1, 50)
         except FileNotFoundError:
             self.set_xy(10, 8); self.set_font('Arial', 'B', 12); self.cell(50, 10, 'Logo N/A', 0, 1, 'L')
         self.set_font('DejaVu', '', 9); self.set_y(8); self.set_x(-105)
@@ -31,17 +35,29 @@ class PDF(FPDF):
         self.cell(100, 5, empresa_site, 0, 1, 'R')
         self.set_y(35); self.set_line_width(0.5); self.line(10, self.get_y(), 200, self.get_y())
         self.ln(3); self.set_font('DejaVu', 'B', 16); self.cell(0, 10, 'RELATÓRIO DE FECHAMENTO', 0, 1, 'C'); self.ln(5)
-
     def footer(self):
         self.set_y(-15); self.set_font('DejaVu', 'I', 8); self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
 
+# --- FUNÇÃO DE ENVIO DE EMAIL COM ANEXO ---
+def enviar_pdf_por_email(destinatario, assunto, corpo, dados_pdf, nome_arquivo_pdf):
+    try:
+        remetente, senha = st.secrets["email_credentials"]["username"], st.secrets["email_credentials"]["password"]
+        msg = EmailMessage(); msg['Subject'], msg['From'], msg['To'] = assunto, remetente, destinatario
+        msg.set_content(corpo); msg.add_attachment(dados_pdf, maintype='application', subtype='pdf', filename=nome_arquivo_pdf)
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(remetente, senha); smtp.send_message(msg)
+        st.success(f"Email com o relatório enviado com sucesso para {destinatario}!"); return True
+    except Exception as e:
+        st.error(f"Falha ao enviar o email. Erro: {e}"); st.error("Verifique as credenciais em secrets.toml."); return False
+
 # --- FUNÇÕES DE DADOS ---
 @st.cache_data
-def carregar_clientes():
+def carregar_clientes_e_dados():
     try:
-        return pd.read_sql_query("SELECT nome FROM clientes ORDER BY nome", engine)['nome'].tolist()
+        clientes_df = pd.read_sql_query("SELECT nome, telefone, email FROM clientes ORDER BY nome", engine)
+        return clientes_df
     except:
-        return []
+        return pd.DataFrame()
 
 def buscar_servicos_cliente(cliente, data_inicio, data_fim):
     try:
@@ -53,18 +69,18 @@ def buscar_servicos_cliente(cliente, data_inicio, data_fim):
         """
         return pd.read_sql_query(query, engine, parse_dates=['data'])
     except Exception as e:
-        st.error(f"Erro ao buscar serviços: {e}")
-        return pd.DataFrame()
+        st.error(f"Erro ao buscar serviços: {e}"); return pd.DataFrame()
 
 # --- INTERFACE DO STREAMLIT ---
-lista_clientes = carregar_clientes()
+df_clientes = carregar_clientes_e_dados()
+lista_clientes_nomes = df_clientes['nome'].tolist() if not df_clientes.empty else []
 
-if not lista_clientes:
+if not lista_clientes_nomes:
     st.warning("Nenhum cliente cadastrado. Por favor, cadastre um cliente na página 'Clientes'.")
 else:
     col1, col2, col3 = st.columns(3)
     with col1:
-        cliente_selecionado = st.selectbox("Selecione o Cliente:", options=lista_clientes)
+        cliente_selecionado = st.selectbox("Selecione o Cliente:", options=lista_clientes_nomes)
     with col2:
         data_inicio = st.date_input("Data Inicial", value=datetime.now().replace(day=1))
     with col3:
@@ -75,67 +91,84 @@ else:
             st.error("Por favor, selecione um cliente.")
         else:
             servicos_df = buscar_servicos_cliente(cliente_selecionado, data_inicio, data_fim)
-
             if servicos_df.empty:
-                st.warning(f"Nenhum serviço encontrado para o cliente '{cliente_selecionado}' no período selecionado.")
+                st.warning(f"Nenhum serviço encontrado para '{cliente_selecionado}' no período selecionado.")
             else:
-                with st.spinner("Gerando PDF..."):
-                    pdf = PDF()
-                    try:
-                        pdf.add_font('DejaVu', '', 'DejaVuSans.ttf'); pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf'); pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf')
-                    except FileNotFoundError: st.error("Arquivos de fonte (DejaVu) não encontrados.")
-                    
-                    pdf.add_page()
-                    pdf.set_auto_page_break(auto=True, margin=15)
-                    
-                    # Seção de informações
-                    pdf.set_font('DejaVu', 'B', 12)
-                    pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 1, 'L')
-                    pdf.ln(2); pdf.set_font('DejaVu', '', 10)
-                    pdf.multi_cell(95, 6, f"Nome: {cliente_selecionado}")
-                    
-                    pdf.set_y(pdf.get_y() - 16) # Volta para alinhar as colunas
-                    pdf.set_x(105); pdf.set_font('DejaVu', 'B', 12)
-                    pdf.cell(95, 8, 'PERÍODO REFERENTE', 'B', 1, 'L')
-                    pdf.ln(2); pdf.set_x(105); pdf.set_font('DejaVu', '', 10)
-                    pdf.multi_cell(95, 6, f"Data Inicial: {data_inicio.strftime('%d/%m/%Y')}\n"
-                                         f"Data Final: {data_fim.strftime('%d/%m/%Y')}")
-                    pdf.ln(10)
-                    
-                    # Tabela de serviços
-                    pdf.set_font('DejaVu', 'B', 12)
-                    pdf.cell(0, 8, 'SERVIÇOS REALIZADOS NO PERÍODO', 'B', 1, 'L')
-                    pdf.ln(2)
-                    
-                    # Cabeçalho da tabela
-                    pdf.set_font('DejaVu', 'B', 10)
-                    pdf.cell(30, 7, 'Data', 1, 0, 'C')
-                    pdf.cell(50, 7, 'Nº O.S.', 1, 0, 'C')
-                    pdf.cell(70, 7, 'Máquina', 1, 0, 'C')
-                    pdf.cell(40, 7, 'Valor Total', 1, 1, 'C')
+                # Armazena os resultados no session_state para os botões de ação
+                st.session_state.servicos_df = servicos_df
+                st.session_state.cliente_selecionado = cliente_selecionado
+                st.session_state.periodo = (data_inicio, data_fim)
 
-                    # Corpo da tabela
-                    pdf.set_font('DejaVu', '', 10)
-                    total_a_pagar = 0
-                    for index, row in servicos_df.iterrows():
-                        pdf.cell(30, 7, row['data'].strftime('%d/%m/%Y'), 1, 0, 'C')
-                        pdf.cell(50, 7, str(row['ordem_servico']), 1, 0, 'C')
-                        pdf.cell(70, 7, str(row['maquina']), 1, 0, 'C')
-                        pdf.cell(40, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
-                        total_a_pagar += row['valor_atendimento']
+# --- Exibe a prévia e os botões de ação se um relatório foi gerado ---
+if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
+    servicos_df = st.session_state.servicos_df
+    cliente_selecionado = st.session_state.cliente_selecionado
+    data_inicio, data_fim = st.session_state.periodo
+    
+    st.markdown("---")
+    st.subheader("Prévia do Relatório")
+    st.dataframe(servicos_df, hide_index=True)
+    total_a_pagar = servicos_df['valor_atendimento'].sum()
+    st.metric("Valor Total a Pagar", f"R$ {total_a_pagar:,.2f}")
+    st.markdown("---")
+    st.subheader("Ações do Relatório")
 
-                    # Linha de Total
-                    pdf.set_font('DejaVu', 'B', 11)
-                    pdf.cell(150, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R')
-                    pdf.cell(40, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
-                    
-                    pdf_bytes = bytes(pdf.output())
-                    nome_arquivo = f"Fechamento_{cliente_selecionado}_{data_inicio.strftime('%Y%m%d')}-{data_fim.strftime('%Y%m%d')}.pdf"
-                    
-                    st.download_button(
-                        label="✅ PDF Gerado! Clique para baixar.",
-                        data=pdf_bytes,
-                        file_name=nome_arquivo,
-                        mime="application/pdf",
-                        use_container_width=True
+    # --- GERAÇÃO DO PDF EM MEMÓRIA ---
+    pdf = PDF()
+    try:
+        pdf.add_font('DejaVu', '', 'DejaVuSans.ttf'); pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf'); pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf')
+    except: pass
+    pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_font('DejaVu', 'B', 12); pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 1, 'L'); pdf.ln(2)
+    pdf.set_font('DejaVu', '', 10); pdf.multi_cell(95, 6, f"Nome: {cliente_selecionado}")
+    pdf.set_y(pdf.get_y() - 16); pdf.set_x(105); pdf.set_font('DejaVu', 'B', 12)
+    pdf.cell(95, 8, 'PERÍODO REFERENTE', 'B', 1, 'L'); pdf.ln(2); pdf.set_x(105); pdf.set_font('DejaVu', '', 10)
+    pdf.multi_cell(95, 6, f"Data Inicial: {data_inicio.strftime('%d/%m/%Y')}\nData Final: {data_fim.strftime('%d/%m/%Y')}"); pdf.ln(10)
+    pdf.set_font('DejaVu', 'B', 12); pdf.cell(0, 8, 'SERVIÇOS REALIZADOS NO PERÍODO', 'B', 1, 'L'); pdf.ln(2)
+    pdf.set_font('DejaVu', 'B', 10); pdf.cell(30, 7, 'Data', 1, 0, 'C'); pdf.cell(50, 7, 'Nº O.S.', 1, 0, 'C')
+    pdf.cell(70, 7, 'Máquina', 1, 0, 'C'); pdf.cell(40, 7, 'Valor Total', 1, 1, 'C')
+    pdf.set_font('DejaVu', '', 10)
+    for index, row in servicos_df.iterrows():
+        pdf.cell(30, 7, row['data'].strftime('%d/%m/%Y'), 1, 0, 'C'); pdf.cell(50, 7, str(row['ordem_servico']), 1, 0, 'C')
+        pdf.cell(70, 7, str(row['maquina']), 1, 0, 'C'); pdf.cell(40, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
+    pdf.set_font('DejaVu', 'B', 11); pdf.cell(150, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R'); pdf.cell(40, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
+    pdf_bytes = bytes(pdf.output())
+    nome_arquivo = f"Fechamento_{cliente_selecionado.replace(' ', '_')}_{data_inicio.strftime('%Y%m%d')}-{data_fim.strftime('%Y%m%d')}.pdf"
+
+    # --- BOTÃO DE DOWNLOAD ---
+    st.download_button(label="📥 Baixar PDF", data=pdf_bytes, file_name=nome_arquivo, mime="application/pdf", use_container_width=True)
+    
+    # --- BOTÕES DE WHATSAPP E EMAIL ---
+    dados_cliente = df_clientes[df_clientes['nome'] == cliente_selecionado].iloc[0]
+    telefone_cliente = dados_cliente.get('telefone')
+    email_cliente = dados_cliente.get('email')
+
+    # Mensagem para envio
+    mensagem_envio = f"Prezado(a) {cliente_selecionado},\n\nSegue em anexo o relatório de fechamento dos serviços prestados entre {data_inicio.strftime('%d/%m/%Y')} e {data_fim.strftime('%d/%m/%Y')}, totalizando {f'R$ {total_a_pagar:,.2f}'.replace('.',',')}.\n\nQualquer dúvida, estamos à disposição."
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if telefone_cliente and pd.notnull(telefone_cliente):
+            numero_limpo = re.sub(r'\D', '', str(telefone_cliente))
+            if not numero_limpo.startswith('55'): numero_limpo = '55' + numero_limpo
+            mensagem_url = quote(mensagem_envio)
+            link_whatsapp = f"https://wa.me/{numero_limpo}?text={mensagem_url}"
+            st.link_button("📲 Enviar via WhatsApp", url=link_whatsapp, use_container_width=True)
+        else:
+            st.button("📲 Enviar via WhatsApp", use_container_width=True, disabled=True)
+            st.caption("Cliente sem telefone.")
+            
+    with col2:
+        if email_cliente and pd.notnull(email_cliente):
+            if st.button("✉️ Enviar por Email com Anexo", use_container_width=True, type="primary"):
+                with st.spinner(f"Enviando para {email_cliente}..."):
+                    enviar_pdf_por_email(
+                        destinatario=email_cliente,
+                        assunto=f"Fechamento de Serviços - {cliente_selecionado}",
+                        corpo=mensagem_envio,
+                        dados_pdf=pdf_bytes,
+                        nome_arquivo_pdf=nome_arquivo
                     )
+        else:
+            st.button("✉️ Enviar por Email com Anexo", use_container_width=True, disabled=True)
+            st.caption("Cliente sem email.")
