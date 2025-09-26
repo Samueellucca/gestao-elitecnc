@@ -24,7 +24,7 @@ class PDF(FPDF):
         empresa_site = "www.elitecncservice.com.br"
         
         try:
-            self.image('logo.png', 10, 2, 50)
+            self.image('logo.png', 10, 8, 50)
         except FileNotFoundError:
             self.set_xy(10, 8)
             self.set_font('Arial', 'B', 12) 
@@ -44,7 +44,6 @@ class PDF(FPDF):
         self.cell(100, 5, empresa_site, 0, 1, 'R')
         
         self.set_y(35)
-        
         self.set_line_width(0.5)
         self.line(10, self.get_y(), 200, self.get_y()) 
         
@@ -63,19 +62,15 @@ def enviar_pdf_por_email(destinatario, assunto, corpo, dados_pdf, nome_arquivo_p
     try:
         remetente = st.secrets["email_credentials"]["username"]
         senha = st.secrets["email_credentials"]["password"]
-
         msg = EmailMessage()
         msg['Subject'] = assunto
         msg['From'] = remetente
         msg['To'] = destinatario
         msg.set_content(corpo)
-
         msg.add_attachment(dados_pdf, maintype='application', subtype='pdf', filename=nome_arquivo_pdf)
-
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha)
             smtp.send_message(msg)
-        
         st.success(f"Email com o relatório enviado com sucesso para {destinatario}!")
         return True
     except Exception as e:
@@ -83,11 +78,12 @@ def enviar_pdf_por_email(destinatario, assunto, corpo, dados_pdf, nome_arquivo_p
         st.error("Verifique as credenciais em secrets.toml e sua Senha de App.")
         return False
 
-# --- FUNÇÃO PARA CARREGAR DADOS ---
+# --- FUNÇÃO PARA CARREGAR DADOS (COM CONSULTA CORRIGIDA) ---
 @st.cache_data
 def carregar_dados_completos():
     try:
-        query = "SELECT rowid as id, * FROM entradas"
+        # CORREÇÃO: Removido "rowid as id" para usar a coluna "id" que já existe
+        query = "SELECT * FROM entradas"
         entradas_df = pd.read_sql(query, engine, parse_dates=['data'])
         clientes_df = pd.read_sql("SELECT nome, telefone, email, endereco FROM clientes", engine)
         
@@ -104,37 +100,32 @@ df_os = carregar_dados_completos()
 
 if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_servico'].isnull().all():
     df_os_validas = df_os.dropna(subset=['ordem_servico']).copy()
-
     df_os_validas['display'] = df_os_validas.apply(
-        lambda row: f"O.S. {row['ordem_servico']} - {row['cliente']} ({row['data'].strftime('%d/%m/%Y')})",
-        axis=1
+        lambda row: f"O.S. {row['ordem_servico']} - {row['cliente']} ({row['data'].strftime('%d/%m/%Y')})", axis=1
     )
     
     os_selecionada_display = st.selectbox(
-        "Selecione a Ordem de Serviço:",
-        options=[""] + df_os_validas['display'].tolist()
+        "Selecione a Ordem de Serviço:", options=[""] + df_os_validas['display'].tolist()
     )
 
     if os_selecionada_display:
         os_details = df_os_validas[df_os_validas['display'] == os_selecionada_display].iloc[0]
         telefone_cliente = os_details.get('telefone_y', os_details.get('telefone', 'N/A'))
-        email_cliente = os_details.get('email_y', os_details.get('email'))
+        email_cliente = os_details.get('email_y', os_details.get('email', None))
 
         st.markdown("---")
         
         pdf = PDF()
-        
         try:
             pdf.add_font('DejaVu', '', 'DejaVuSans.ttf')
             pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf')
             pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf')
         except FileNotFoundError:
-            st.error("Arquivos de fonte (DejaVu) não encontrados. Verifique se os 3 arquivos .ttf estão na pasta principal.")
+            st.error("Arquivos de fonte (DejaVu) não encontrados.")
         
         pdf.add_page()
+        # ... (restante do código de preenchimento do PDF) ...
         pdf.set_auto_page_break(auto=True, margin=15)
-        
-        # --- Preenchimento do PDF ---
         y_inicial_colunas = pdf.get_y()
         pdf.set_font('DejaVu', 'B', 12)
         pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 1, 'L')
@@ -190,7 +181,6 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         pdf_bytes = bytes(pdf.output())
         nome_arquivo = f"Relatorio_OS_{os_details.get('ordem_servico', 'N_A')}.pdf"
 
-        # --- BOTÕES DE AÇÃO ---
         st.subheader("Ações do Relatório")
         col1, col2 = st.columns(2)
         
@@ -207,7 +197,7 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
             if email_cliente and pd.notnull(email_cliente):
                 if st.button("✉️ Enviar por Email", use_container_width=True, type="primary"):
                     with st.spinner(f"Enviando para {email_cliente}..."):
-                        corpo_email = f"Prezado(a) {os_details.get('cliente')},\n\nSegue em anexo o relatório de serviço referente à O.S. nº {os_details.get('ordem_servico')}.\n\nQualquer Dúvida estamos a disposição!! \n\nAtenciosamente,"
+                        corpo_email = f"Prezado(a) {os_details.get('cliente')},\n\nSegue em anexo o relatório de serviço referente à O.S. nº {os_details.get('ordem_servico')}.\n\nAtenciosamente,"
                         enviar_pdf_por_email(
                             destinatario=email_cliente,
                             assunto=f"Relatório de Serviço - O.S. {os_details.get('ordem_servico')}",
@@ -216,7 +206,6 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
                             nome_arquivo_pdf=nome_arquivo
                         )
             else:
-                # Cria um espaço reservado ou uma mensagem se não houver email
                 st.button("✉️ Enviar por Email", use_container_width=True, disabled=True)
                 st.caption("Cliente sem email cadastrado.")
 
