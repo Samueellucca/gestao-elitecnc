@@ -134,6 +134,7 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         pdf.multi_cell(95, 6, f"Nome: {os_details.get('cliente', 'N/A')}\n"
                              f"Telefone: {telefone_cliente}\n"
                              f"Endereço: {os_details.get('endereco', 'N/A')}")
+        # BLOCO NOVO E CORRIGIDO
         y_final_coluna_esquerda = pdf.get_y()
         pdf.set_y(y_inicial_colunas)
         pdf.set_x(105)
@@ -142,20 +143,25 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         pdf.ln(2)
         pdf.set_x(105)
         pdf.set_font('DejaVu', '', 10)
+
+        # Monta a lista de detalhes do serviço dinamicamente
+        detalhes_servico = []
+        detalhes_servico.append(f"Nº da O.S.: {os_details.get('ordem_servico', 'N/A')}")
+        data_servico_str = os_details['data'].strftime('%d/%m/%Y') if pd.notnull(os_details.get('data')) else 'Data N/A'
+        detalhes_servico.append(f"Data: {data_servico_str}")
         
-        # --- BLOCO CORRIGIDO ---
-        # Cria variáveis para a data formatada, tratando o caso de data nula
-        data_servico_str = (
-            os_details['data'].strftime('%d/%m/%Y')
-            if pd.notnull(os_details.get('data'))
-            else 'Data N/A'
-        )
-        pdf.multi_cell(95, 6, f"Nº da O.S.: {os_details.get('ordem_servico', 'N/A')}\n"
-                             f"Data: {data_servico_str}\n"
-                             f"Máquina: {os_details.get('maquina', 'N/A')}\n"
-                             f"Patrimônio: {os_details.get('patrimonio', 'N/A')}\n"
-                             f"Início: {os_details.get('hora_inicio', 'N/A')}\n"
-                             f"Fim: {os_details.get('hora_fim', 'N/A')}")
+        # Adiciona máquina e patrimônio apenas se existirem
+        if os_details.get('maquina') and pd.notnull(os_details.get('maquina')):
+            detalhes_servico.append(f"Máquina: {os_details.get('maquina')}")
+        if os_details.get('patrimonio') and pd.notnull(os_details.get('patrimonio')):
+            detalhes_servico.append(f"Patrimônio: {os_details.get('patrimonio')}")
+            
+        detalhes_servico.append(f"Início: {os_details.get('hora_inicio', 'N/A')}")
+        detalhes_servico.append(f"Fim: {os_details.get('hora_fim', 'N/A')}")
+        
+        # Junta as linhas e escreve no PDF
+        texto_final_servico = "\n".join(detalhes_servico)
+        pdf.multi_cell(95, 6, texto_final_servico)
         # ----------------------
 
         y_final_coluna_direita = pdf.get_y()
