@@ -1,0 +1,12 @@
+credentials:
+  usernames:
+    # Substitua 'samuel' pelo nome de usuário que você quer
+    samuel:
+      email: samukatas@gmail.com
+      name: Samuel
+      # Cole a senha HASHED que você gerou no passo anterior AQUI
+      password: 'Elitecnc@2025'
+cookie:
+  expiry_days: 30
+  key: alguma_chave_secreta_aleatoria # Pode ser qualquer texto
+  name: algum_nome_de_cookie_aleatorio
