@@ -125,6 +125,8 @@ if st.session_state["authentication_status"]:
         
         os_id_default = edit_data.get('ordem_servico', "") if is_editing_entrada and edit_data else ""
         descricao_servico_default = edit_data.get('descricao_servico', "") if is_editing_entrada and edit_data else ""
+        patrimonio_default = edit_data.get('patrimonio', "") if is_editing_entrada and edit_data else ""
+        maquina_default = edit_data.get('maquina', "") if is_editing_entrada and edit_data else ""
         pedagio_default = edit_data.get('pedagio', 0.0) if is_editing_entrada and edit_data else 0.0
         refeicao_default = edit_data.get('refeicao', 0.0) if is_editing_entrada and edit_data else 0.0
         pecas_default = edit_data.get('pecas', 0.0) if is_editing_entrada and edit_data else 0.0
@@ -134,6 +136,8 @@ if st.session_state["authentication_status"]:
         data_atendimento = st.date_input("Data do Atendimento", value=data_default)
         os_id = st.text_input("Nº da O.S.", value=os_id_default)
         descricao_servico = st.text_area("Descrição do Serviço", value=descricao_servico_default)
+        patrimonio = st.text_input("Patrimônio", value=patrimonio_default)
+        maquina = st.text_input("Máquina", value=maquina_default)
         
         cliente_index = clientes_cadastrados.index(cliente_default) if cliente_default in clientes_cadastrados else 0
         cliente = st.selectbox("Cliente", options=clientes_cadastrados, index=cliente_index)
@@ -223,6 +227,8 @@ if st.session_state["authentication_status"]:
                 'hora_fim': hora_fim.strftime('%H:%M:%S'),
                 'ordem_servico': os_id,
                 'descricao_servico': descricao_servico,
+                'patrimonio': patrimonio,
+                'maquina': maquina,
                 'cliente': cliente,
                 'valor_atendimento': valor_atendimento_calculado,
                 'horas_tecnicas': valor_horas_normais,
@@ -453,6 +459,8 @@ if st.session_state["authentication_status"]:
         "descricao_servico": "Descrição do Serviço",
         "ordem_servico": "Nº O.S.",
         "cliente": "Cliente",
+         "patrimonio": "Patrimônio",   # <-- ACRESCENTAR AQUI
+        "maquina": "Máquina",       # <-- E AQUI
         "hora_inicio": "Início",
         "hora_fim": "Fim"
     }
