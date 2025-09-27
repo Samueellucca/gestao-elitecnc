@@ -1,8 +1,25 @@
 # pages/2_⭐_Clientes.py
 import streamlit as st
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
 import pandas as pd
 from sqlalchemy import create_engine, text
 
+# --- VERIFICAÇÃO DE LOGIN ---
+with open('config.yaml', 'r', encoding='utf-8') as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
+)
+
+if st.session_state.get("authentication_status"):
+    authenticator.logout('Sair', 'sidebar')
+    
 # --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
 st.set_page_config(page_title="Cadastro de Clientes", page_icon="⭐", layout="wide")
 st.title("⭐ Cadastro de Clientes")

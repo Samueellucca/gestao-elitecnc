@@ -1,10 +1,28 @@
 import streamlit as st
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
 import pandas as pd
 from sqlalchemy import create_engine
 from urllib.parse import quote
 import re
 import smtplib
 from email.message import EmailMessage
+
+# --- VERIFICAÇÃO DE LOGIN ---
+with open('config.yaml', 'r', encoding='utf-8') as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
+)
+
+if st.session_state.get("authentication_status"):
+    authenticator.logout('Sair', 'sidebar')
+    
 
 st.set_page_config(page_title="Enviar Relatório", page_icon="📧", layout="centered")
 st.title("📧 Enviar Relatório de O.S.")
