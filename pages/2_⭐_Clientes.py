@@ -7,19 +7,22 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 
 # --- VERIFICAÇÃO DE LOGIN ---
-with open('config.yaml', 'r', encoding='utf-8') as file:
-    config = yaml.load(file, Loader=SafeLoader)
+if "authentication_status" not in st.session_state:
+    st.error("Por favor, faça login na página inicial.")
+    st.stop()
+elif st.session_state["authentication_status"] is False:
+    st.error("Usuário ou senha inválidos. Volte à página inicial e tente novamente.")
+    st.stop()
+elif st.session_state["authentication_status"] is None:
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
 
-authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
-)
-
+# Se chegou aqui, está logado:
+authenticator = None  # só para manter compatibilidade se precisar do logout
+st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authentication_status": None}))
 if st.session_state.get("authentication_status"):
     authenticator.logout('Sair', 'sidebar')
-    
+
 # --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
 st.set_page_config(page_title="Cadastro de Clientes", page_icon="⭐", layout="wide")
 st.title("⭐ Cadastro de Clientes")
