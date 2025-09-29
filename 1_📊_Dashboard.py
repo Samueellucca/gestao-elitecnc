@@ -6,7 +6,6 @@ from sqlalchemy import create_engine, text
 import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
-import sqlite3
 import io
 import holidays
 
@@ -57,16 +56,16 @@ if st.session_state["authentication_status"]:
             except:
                 return [""]
 
-    def deletar_lancamento(tabela, rowid):
+    def deletar_lancamento(tabela, id):
         with engine.connect() as con:
-            con.execute(text(f"DELETE FROM {tabela} WHERE rowid = :id"), {"id": rowid})
+            con.execute(text(f"DELETE FROM {tabela} WHERE id = :id"), {"id": id})
             con.commit()
 
-    def atualizar_lancamento(tabela, rowid, dados):
+    def atualizar_lancamento(tabela, id, dados):
         with engine.connect() as con:
             set_clause = ", ".join([f"\"{key}\" = :{key}" for key in dados.keys()])
-            dados['id'] = rowid
-            con.execute(text(f"UPDATE {tabela} SET {set_clause} WHERE rowid = :id"), dados)
+            dados['id'] = id
+            con.execute(text(f"UPDATE {tabela} SET {set_clause} WHERE id = :id"), dados)
             con.commit()
 
     # --- CARREGANDO DADOS E CLIENTES ---
@@ -162,10 +161,7 @@ if st.session_state["authentication_status"]:
         submit_entrada = st.form_submit_button("Salvar Alterações" if is_editing_entrada else "Lançar Entrada")
 
         if submit_entrada:
-            
             # --- NOVA LÓGICA DE CÁLCULO DE HORAS ---
-            
-            # 1. Definir os períodos do dia
             inicio_trabalho = datetime.combine(data_atendimento, hora_inicio)
             fim_trabalho = datetime.combine(data_atendimento, hora_fim)
             if fim_trabalho <= inicio_trabalho:
@@ -176,7 +172,6 @@ if st.session_state["authentication_status"]:
             periodo_almoco_inicio = datetime.combine(inicio_trabalho.date(), time(12, 0))
             periodo_almoco_fim = datetime.combine(inicio_trabalho.date(), time(13, 0))
 
-            # Função auxiliar para calcular sobreposição de tempo em segundos
             def calcular_sobreposicao(inicio1, fim1, inicio2, fim2):
                 sobreposicao_inicio = max(inicio1, inicio2)
                 sobreposicao_fim = min(fim1, fim2)
@@ -184,41 +179,32 @@ if st.session_state["authentication_status"]:
                     return (sobreposicao_fim - sobreposicao_inicio).total_seconds()
                 return 0
 
-            # 2. Calcular desconto de almoço
             segundos_almoco = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_almoco_inicio, periodo_almoco_fim)
-            
-            # 3. Verificar se é dia de semana, fim de semana ou feriado
             brasil_holidays = holidays.Brazil(years=inicio_trabalho.year)
             is_dia_util = inicio_trabalho.weekday() < 5 and inicio_trabalho.date() not in brasil_holidays
-            
+
             segundos_normais = 0
             segundos_extra_50 = 0
             segundos_extra_100 = 0
-            
+
             duracao_total_bruta_segundos = (fim_trabalho - inicio_trabalho).total_seconds()
             duracao_total_liquida_segundos = duracao_total_bruta_segundos - segundos_almoco
 
             if is_dia_util:
-                # Calcula horas normais (já descontando o almoço que acontece nesse período)
                 segundos_normais_brutos = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_normal_inicio, periodo_normal_fim)
                 segundos_normais = segundos_normais_brutos - segundos_almoco
-                
-                # O que sobrar são horas 50%
                 segundos_extra_50 = duracao_total_liquida_segundos - segundos_normais
             else:
-                # Em feriados ou fim de semana, todas as horas líquidas são 100%
                 segundos_extra_100 = duracao_total_liquida_segundos
 
-            # 4. Converter segundos para horas decimais
             horas_normais = segundos_normais / 3600
             horas_extra_50 = segundos_extra_50 / 3600
             horas_extra_100 = segundos_extra_100 / 3600
 
-            # --- CÁLCULO FINANCEIRO ---
             valor_horas_normais = valor_hora_input * horas_normais
             valor_horas_50 = (valor_hora_input * 1.5) * horas_extra_50
             valor_horas_100 = (valor_hora_input * 2.0) * horas_extra_100
-            
+
             valor_km_final = qtd_km * VALOR_POR_KM
             valor_atendimento_calculado = valor_horas_normais + valor_horas_50 + valor_horas_100 + valor_km_final + refeicao + pecas_entrada + pedagio
 
@@ -253,7 +239,7 @@ if st.session_state["authentication_status"]:
             st.cache_data.clear()
             st.rerun()
 
-    # O restante do arquivo (formulário de saídas, painel principal, gráficos) permanece igual
+    # --- FORMULÁRIO DE SAÍDAS ---
     is_editing_saida = st.session_state.edit_id is not None and st.session_state.edit_table == 'saidas'
     with st.sidebar.form("form_saidas", clear_on_submit=False):
         st.subheader("Editando Saída" if is_editing_saida else "Nova Saída")
@@ -298,6 +284,7 @@ if st.session_state["authentication_status"]:
             st.cache_data.clear()
             st.rerun()
 
+    # --- GERENCIAR LANÇAMENTOS ---
     st.sidebar.header("Gerenciar Lançamentos")
     tipo_lancamento = st.sidebar.selectbox("Tipo de lançamento", ["Entrada", "Saída"])
     df_gerenciar = entradas_df if tipo_lancamento == "Entrada" else saidas_df
@@ -336,6 +323,7 @@ if st.session_state["authentication_status"]:
     else:
         st.sidebar.info(f"Nenhum(a) {tipo_lancamento.lower()} para gerenciar.")
 
+    # --- DASHBOARD PRINCIPAL ---
     st.title("📊 Dashboard Financeiro")
     st.markdown("---")
 
@@ -460,8 +448,8 @@ if st.session_state["authentication_status"]:
         "descricao_servico": "Descrição do Serviço",
         "ordem_servico": "Nº O.S.",
         "cliente": "Cliente",
-         "patrimonio": "Patrimônio",   # <-- ACRESCENTAR AQUI
-        "maquina": "Máquina",       # <-- E AQUI
+        "patrimonio": "Patrimônio",
+        "maquina": "Máquina",
         "hora_inicio": "Início",
         "hora_fim": "Fim"
     }
