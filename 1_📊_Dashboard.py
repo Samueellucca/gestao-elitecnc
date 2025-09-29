@@ -40,13 +40,13 @@ if st.session_state["authentication_status"]:
     @st.cache_data
     def carregar_dados():
         try:
-            entradas_df = pd.read_sql_query("SELECT rowid as id, * FROM entradas", engine, parse_dates=['data'])
+            entradas_df = pd.read_sql_query("SELECT * FROM entradas", engine, parse_dates=['data'])
         except Exception:
-            entradas_df = pd.DataFrame(columns=['id'])
+            entradas_df = pd.DataFrame()
         try:
-            saidas_df = pd.read_sql_query("SELECT rowid as id, * FROM saidas", engine, parse_dates=['data'])
+            saidas_df = pd.read_sql_query("SELECT * FROM saidas", engine, parse_dates=['data'])
         except Exception:
-            saidas_df = pd.DataFrame(columns=['id'])
+            saidas_df = pd.DataFrame()
         return entradas_df, saidas_df
 
     def carregar_clientes():
