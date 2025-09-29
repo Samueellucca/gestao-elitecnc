@@ -163,7 +163,21 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     email_cliente = dados_cliente.get('email')
 
     # Mensagem para envio
-    mensagem_envio = f"Prezado(a) {cliente_selecionado},\n\nSegue em anexo o relatório de fechamento dos serviços prestados entre {data_inicio.strftime('%d/%m/%Y')} e {data_fim.strftime('%d/%m/%Y')}, totalizando {f'R$ {total_a_pagar:,.2f}'.replace('.',',')}.\n\nQualquer dúvida, estamos à disposição."
+    mensagem_envio = f"""Prezado(a) {cliente_selecionado},
+
+Segue em anexo o relatório de fechamento dos serviços prestados entre {data_inicio.strftime('%d/%m/%Y')} e {data_fim.strftime('%d/%m/%Y')}, totalizando {f'R$ {total_a_pagar:,.2f}'.replace('.',',')}.
+
+Qualquer dúvida, estamos à disposição.
+
+
+Atenciosamente,
+
+Filipe Guimarães
+Sócio Proprietário
+WhatsApp: (11) 97761-7009
+elitecncservice@gmail.com
+http://www.elitecncservice.com.br
+"""
     
     col1, col2 = st.columns(2)
     with col1:
