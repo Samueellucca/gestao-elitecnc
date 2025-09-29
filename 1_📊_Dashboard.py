@@ -29,9 +29,9 @@ authenticator.login()
 
 if st.session_state["authentication_status"]:
     # --- APLICAÇÃO PRINCIPAL ---
-   # Conexão com o banco de dados da nuvem a partir dos "Secrets"
-connection_url = st.secrets["database"]["connection_url"]
-engine = create_engine(connection_url)
+    # Conexão com o banco de dados da nuvem a partir dos "Secrets"
+    connection_url = st.secrets["database"]["connection_url"]
+    engine = create_engine(connection_url)
 
     name = st.session_state["name"]
     username = st.session_state["username"]
@@ -474,3 +474,4 @@ elif st.session_state["authentication_status"] is False:
     st.error('Usuário/senha incorreto')
 elif st.session_state["authentication_status"] is None:
     st.warning('Por favor, insira seu usuário e senha para acessar.')
+    
