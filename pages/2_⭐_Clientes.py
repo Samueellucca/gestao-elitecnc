@@ -25,8 +25,9 @@ st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authenticat
 st.set_page_config(page_title="Cadastro de Clientes", page_icon="⭐", layout="wide")
 st.title("⭐ Cadastro de Clientes")
 
-DB_FILE = "financeiro.db"
-engine = create_engine(f'sqlite:///{DB_FILE}')
+# Conexão com o banco de dados da nuvem a partir dos "Secrets"
+connection_url = st.secrets["database"]["connection_url"]
+engine = create_engine(connection_url)
 
 # --- FUNÇÕES DE BANCO DE DADOS ---
 @st.cache_data

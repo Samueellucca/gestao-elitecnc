@@ -29,8 +29,9 @@ st.set_page_config(page_title="Enviar Relatório", page_icon="📧", layout="cen
 st.title("📧 Enviar Relatório de O.S.")
 st.write("Selecione uma Ordem de Serviço abaixo para gerar a mensagem de envio para o cliente.")
 
-DB_FILE = "financeiro.db"
-engine = create_engine(f'sqlite:///{DB_FILE}')
+# Conexão com o banco de dados da nuvem a partir dos "Secrets"
+connection_url = st.secrets["database"]["connection_url"]
+engine = create_engine(connection_url)
 
 def enviar_email(destinatario, assunto, corpo_mensagem):
     try:

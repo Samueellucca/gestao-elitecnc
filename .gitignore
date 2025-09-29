@@ -208,3 +208,5 @@ __marimo__/
 
 # No final do arquivo .gitignore
 limpar_banco.py
+
+setup_database.py

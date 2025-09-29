@@ -29,8 +29,9 @@ authenticator.login()
 
 if st.session_state["authentication_status"]:
     # --- APLICAÇÃO PRINCIPAL ---
-    DB_FILE = "financeiro.db"
-    engine = create_engine(f'sqlite:///{DB_FILE}')
+   # Conexão com o banco de dados da nuvem a partir dos "Secrets"
+connection_url = st.secrets["database"]["connection_url"]
+engine = create_engine(connection_url)
 
     name = st.session_state["name"]
     username = st.session_state["username"]

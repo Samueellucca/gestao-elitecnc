@@ -30,8 +30,9 @@ if st.session_state.get("authentication_status"):
     st.title("🌊 Fluxo de Caixa Interativo")
     st.write("Analise a evolução do seu saldo com filtros e métricas detalhadas.")
 
-    DB_FILE = "financeiro.db"
-    engine = create_engine(f'sqlite:///{DB_FILE}')
+    # Conexão com o banco de dados da nuvem a partir dos "Secrets"
+    connection_url = st.secrets["database"]["connection_url"]
+    engine = create_engine(connection_url)
 
     @st.cache_data
     def carregar_transacoes():
@@ -146,6 +147,7 @@ if st.session_state.get("authentication_status"):
                 use_container_width=True,
                 hide_index=True
             )
+
 else:
     if st.session_state.get("authentication_status") is False:
         st.error('Usuário ou senha incorreto.')

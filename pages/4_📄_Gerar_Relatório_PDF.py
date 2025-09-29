@@ -29,8 +29,9 @@ st.set_page_config(page_title="Gerar PDF", page_icon="📄", layout="centered")
 st.title("📄 Gerar Relatório em PDF")
 st.write("Selecione uma Ordem de Serviço abaixo para gerar um relatório em PDF para impressão.")
 
-DB_FILE = "financeiro.db"
-engine = create_engine(f'sqlite:///{DB_FILE}')
+# Conexão com o banco de dados da nuvem a partir dos "Secrets"
+connection_url = st.secrets["database"]["connection_url"]
+engine = create_engine(connection_url)
 
 # --- CLASSE PARA GERAR O PDF ---
 class PDF(FPDF):
