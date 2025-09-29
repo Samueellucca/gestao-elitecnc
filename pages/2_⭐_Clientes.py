@@ -85,7 +85,7 @@ if not df_clientes.empty:
     st.subheader("Excluir Cliente")
     
     # Prepara a lista de nomes para o selectbox, no formato "Nome (ID: X)"
-    lista_clientes_excluir = [f"{row.Nome} (ID: {row.ID})" for index, row in df_clientes.iterrows()]
+    lista_clientes_excluir = [f"{row['Nome']} (ID: {row['ID']})" for index, row in df_clientes.iterrows()]
     cliente_para_excluir_display = st.selectbox(
         "Selecione um cliente para excluir",
         options=[""] + lista_clientes_excluir
