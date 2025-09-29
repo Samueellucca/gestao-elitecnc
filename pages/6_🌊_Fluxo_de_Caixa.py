@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 from sqlalchemy import create_engine
 import streamlit_authenticator as stauth
 import yaml
@@ -75,61 +75,78 @@ if st.session_state.get("authentication_status"):
             (df_transacoes['data'].dt.date <= data_fim)
         ].copy()
 
-        # Recalcula o saldo com base no saldo inicial e no período filtrado
-        df_filtrado['saldo'] = saldo_inicial + df_filtrado['valor'].cumsum()
+        if df_filtrado.empty:
+            st.warning("Nenhum dado encontrado para o período selecionado.")
+        else:
+            df_filtrado.reset_index(drop=True, inplace=True)
+            df_filtrado['saldo'] = saldo_inicial + df_filtrado['valor'].cumsum()
 
-        st.markdown("---")
+            st.markdown("---")
 
-        # --- MÉTRICAS RESUMIDAS ---
-        total_entradas = df_filtrado[df_filtrado['valor'] > 0]['valor'].sum()
-        total_saidas = df_filtrado[df_filtrado['valor'] < 0]['valor'].sum()
-        resultado_liquido = total_entradas + total_saidas
+            # --- MÉTRICAS RESUMIDAS ---
+            total_entradas = df_filtrado[df_filtrado['valor'] > 0]['valor'].sum()
+            total_saidas = df_filtrado[df_filtrado['valor'] < 0]['valor'].sum()
+            resultado_liquido = total_entradas + total_saidas
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("🟢 Total de Entradas", f"R$ {total_entradas:,.2f}")
-        col2.metric("🔴 Total de Saídas", f"R$ {abs(total_saidas):,.2f}")
-        col3.metric("💰 Resultado Líquido", f"R$ {resultado_liquido:,.2f}", delta=f"{resultado_liquido:,.2f} R$")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Saldo Inicial", f"R$ {saldo_inicial:,.2f}")
+            col2.metric("🟢 Entradas", f"R$ {total_entradas:,.2f}")
+            col3.metric("🔴 Saídas", f"R$ {abs(total_saidas):,.2f}")
+            col4.metric("💰 Resultado Líquido", f"R$ {resultado_liquido:,.2f}", delta=f"{resultado_liquido:,.2f} R$")
 
-        st.markdown("---")
+            st.markdown("---")
 
-        # --- GRÁFICO DE EVOLUÇÃO DO SALDO ---
-        st.subheader("Evolução do Saldo no Período")
-        fig = px.line(
-            df_filtrado, 
-            x='data', 
-            y='saldo', 
-            title='Evolução do Saldo ao Longo do Tempo',
-            markers=True,
-            labels={'data': 'Data', 'saldo': 'Saldo (R$)'}
-        )
-        fig.update_traces(hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Saldo: R$ %{y:,.2f}')
-        st.plotly_chart(fig, use_container_width=True)
+            # --- NOVO GRÁFICO COMBINADO ---
+            st.subheader("Evolução do Saldo e Transações no Período")
 
-        st.markdown("---")
+            fig = go.Figure()
 
-        # --- TABELA DE EXTRATO COLORIDA ---
-        st.subheader("Extrato de Transações no Período")
-        
-        def colorir_valores(val):
-            color = 'green' if val > 0 else 'red' if val < 0 else 'black'
-            return f'color: {color}; font-weight: bold;'
-        
-        df_display = df_filtrado[['data', 'descricao', 'valor', 'saldo']].copy()
-        
-        st.dataframe(
-            df_display.style.applymap(colorir_valores, subset=['valor']),
-            column_config={
-                "data": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY - HH:mm"),
-                "descricao": "Descrição",
-                "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
-                "saldo": st.column_config.NumberColumn("Saldo (R$)", format="R$ %.2f")
-            },
-            use_container_width=True,
-            hide_index=True
-        )
+            # Adiciona as barras de transações (entradas e saídas)
+            fig.add_trace(go.Bar(
+                x=df_filtrado['data'],
+                y=df_filtrado['valor'],
+                name='Transação',
+                marker_color=['green' if v > 0 else 'red' for v in df_filtrado['valor']],
+                hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Valor da Transação: R$ %{y:,.2f}<extra></extra>'
+            ))
 
+            # Adiciona a linha de saldo acumulado
+            fig.add_trace(go.Scatter(
+                x=df_filtrado['data'],
+                y=df_filtrado['saldo'],
+                name='Saldo Acumulado',
+                mode='lines+markers',
+                line=dict(color='blue', width=3),
+                hovertemplate='<b>%{x|%d/%m/%Y}</b><br>Saldo Acumulado: R$ %{y:,.2f}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title_text='Evolução do Saldo e Impacto das Transações',
+                xaxis_title='Data',
+                yaxis_title='Valor (R$)',
+                legend_title='Legenda',
+                hovermode='x unified'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("---")
+
+            # --- TABELA DE EXTRATO COLORIDA ---
+            st.subheader("Extrato de Transações no Período")
+            def colorir_valores(val):
+                color = '#2E8B57' if val > 0 else '#C70039' if val < 0 else 'black'
+                return f'color: {color}; font-weight: bold;'
+            
+            df_display = df_filtrado[['data', 'descricao', 'valor', 'saldo']].copy()
+            
+            st.dataframe(
+                df_display.style.applymap(colorir_valores, subset=['valor']).format('R$ {:,.2f}', subset=['valor', 'saldo']),
+                column_config={"data": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY - HH:mm"), "descricao": "Descrição", "valor": "Valor (R$)", "saldo": "Saldo (R$)"},
+                use_container_width=True,
+                hide_index=True
+            )
 else:
-    # Mensagens de erro para quem não está logado
     if st.session_state.get("authentication_status") is False:
         st.error('Usuário ou senha incorreto.')
         st.warning('Por favor, volte à página principal para tentar novamente.')
