@@ -174,7 +174,8 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
             detalhes_servico.append(f"Máquina: {os_details.get('maquina')}")
         if os_details.get('patrimonio') and pd.notnull(os_details.get('patrimonio')):
             detalhes_servico.append(f"Patrimônio: {os_details.get('patrimonio')}")
-            
+
+        detalhes_servico.append(f"Técnicos: {os_details.get('qtd_tecnicos', 1)}")    
         detalhes_servico.append(f"Início: {os_details.get('hora_inicio', 'N/A')}")
         detalhes_servico.append(f"Fim: {os_details.get('hora_fim', 'N/A')}")
         
@@ -202,6 +203,7 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
             "Horas Técnicas Normais": os_details.get('horas_tecnicas', 0),
             "Horas Técnicas 50%": os_details.get('horas_tecnicas_50', 0),
             "Horas Técnicas 100%": os_details.get('horas_tecnicas_100', 0),
+            "Valor de Deslocamento": os_details.get('valor_deslocamento', 0),
             "Deslocamento (KM)": os_details.get('km', 0),
             "Refeição": os_details.get('refeicao', 0),
             "Peças": os_details.get('pecas', 0),

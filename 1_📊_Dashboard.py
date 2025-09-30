@@ -131,6 +131,8 @@ if st.session_state["authentication_status"]:
         refeicao_default = edit_data.get('refeicao', 0.0) if is_editing_entrada and edit_data else 0.0
         pecas_default = edit_data.get('pecas', 0.0) if is_editing_entrada and edit_data else 0.0
         cliente_default = edit_data.get('cliente', "") if is_editing_entrada and edit_data else ""
+        qtd_tecnicos_default = edit_data.get('qtd_tecnicos', 1) if is_editing_entrada and edit_data else 1
+        valor_deslocamento_default = edit_data.get('valor_deslocamento', 0.0) if is_editing_entrada and edit_data else 0.0
 
         # --- CAMPOS DO FORMULÁRIO ---
         data_atendimento = st.date_input("Data do Atendimento", value=data_default)
@@ -141,9 +143,11 @@ if st.session_state["authentication_status"]:
         
         cliente_index = clientes_cadastrados.index(cliente_default) if cliente_default in clientes_cadastrados else 0
         cliente = st.selectbox("Cliente", options=clientes_cadastrados, index=cliente_index)
-        
+
         st.markdown("---")
         st.write("Cálculo de Horas")
+        qtd_tecnicos = st.number_input("Quantidade de Técnicos", min_value=1, step=1, value=qtd_tecnicos_default)
+
         col_hora1, col_hora2 = st.columns(2)
         with col_hora1:
             hora_inicio = st.time_input("Hora de Início", value=hora_inicio_default, step=60)
@@ -153,6 +157,7 @@ if st.session_state["authentication_status"]:
         st.markdown("---")
         st.write("Valores e Quantidades:")
         valor_hora_input = st.number_input("Valor da Hora Técnica (R$)", min_value=0.0, format="%.2f", value=VALOR_HORA_TECNICA)
+        valor_deslocamento = st.number_input("Valor Deslocamento do Técnico (R$)", min_value=0.0, format="%.2f", value=valor_deslocamento_default)
         qtd_km = st.number_input(f"Qtd KM Rodados (R$ {VALOR_POR_KM:.2f}/km)", min_value=0.0, format="%.2f")
         refeicao = st.number_input("Valor da Refeição", min_value=0.0, format="%.2f", value=refeicao_default)
         pecas_entrada = st.number_input("Valor das Peças (Venda)", min_value=0.0, format="%.2f", value=pecas_default)
@@ -201,12 +206,20 @@ if st.session_state["authentication_status"]:
             horas_extra_50 = segundos_extra_50 / 3600
             horas_extra_100 = segundos_extra_100 / 3600
 
-            valor_horas_normais = valor_hora_input * horas_normais
-            valor_horas_50 = (valor_hora_input * 1.5) * horas_extra_50
-            valor_horas_100 = (valor_hora_input * 2.0) * horas_extra_100
-
+            valor_horas_normais = (valor_hora_input * horas_normais) * qtd_tecnicos
+            valor_horas_50 = ((valor_hora_input * 1.5) * horas_extra_50) * qtd_tecnicos
+            valor_horas_100 = ((valor_hora_input * 2.0) * horas_extra_100) * qtd_tecnicos
             valor_km_final = qtd_km * VALOR_POR_KM
-            valor_atendimento_calculado = valor_horas_normais + valor_horas_50 + valor_horas_100 + valor_km_final + refeicao + pecas_entrada + pedagio
+            valor_atendimento_calculado = (
+                valor_horas_normais +
+                valor_horas_50 +
+                valor_horas_100 +
+                valor_km_final +
+                refeicao +
+                pecas_entrada +
+                pedagio +
+                valor_deslocamento
+            )
 
             dados_lancamento = {
                 'data': inicio_trabalho,
@@ -225,7 +238,9 @@ if st.session_state["authentication_status"]:
                 'refeicao': refeicao,
                 'pecas': pecas_entrada,
                 'pedagio': pedagio,
-                'usuario_lancamento': username
+                'usuario_lancamento': username,
+                'qtd_tecnicos': qtd_tecnicos,
+                'valor_deslocamento': valor_deslocamento
             }
 
             if is_editing_entrada:
@@ -462,4 +477,3 @@ elif st.session_state["authentication_status"] is False:
     st.error('Usuário/senha incorreto')
 elif st.session_state["authentication_status"] is None:
     st.warning('Por favor, insira seu usuário e senha para acessar.')
-    
