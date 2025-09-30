@@ -169,13 +169,10 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Blocos de cabeçalho
+    # Cliente (coluna esquerda)
+    pdf.set_xy(10, 50)
     pdf.set_font('DejaVu', 'B', 12)
-    pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 0, 'L')
-    pdf.set_x(105)
-    pdf.cell(95, 8, 'PERÍODO REFERENTE', 'B', 1, 'L')
-
-    # Cliente
+    pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 1, 'L')
     pdf.set_font('DejaVu', '', 10)
     pdf.set_x(10)
     pdf.multi_cell(
@@ -185,10 +182,12 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
         f"Email: {email_cliente if pd.notnull(email_cliente) else 'N/A'}"
     )
 
-    # Período
-    pdf.set_y(35)
-    pdf.set_x(105)
+    # Período (coluna direita)
+    pdf.set_xy(110, 50)
+    pdf.set_font('DejaVu', 'B', 12)
+    pdf.cell(95, 8, 'PERÍODO REFERENTE', 'B', 1, 'L')
     pdf.set_font('DejaVu', '', 10)
+    pdf.set_x(110)
     pdf.multi_cell(
         95, 6,
         f"Data Inicial: {data_inicio.strftime('%d/%m/%Y')}\n"
@@ -204,21 +203,27 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     pdf.set_font('DejaVu', 'B', 10)
     pdf.cell(25, 7, 'Data', 1, 0, 'C')
     pdf.cell(25, 7, 'Nº O.S.', 1, 0, 'C')
-    pdf.cell(80, 7, 'Máquina', 1, 0, 'C')
+    pdf.cell(70, 7, 'Máquina', 1, 0, 'C')
     pdf.cell(30, 7, 'Patrimônio', 1, 0, 'C')
-    pdf.cell(30, 7, 'Valor Total', 1, 1, 'C')
+    pdf.cell(40, 7, 'Valor Total', 1, 1, 'C')
 
     pdf.set_font('DejaVu', '', 10)
     for _, row in servicos_df.iterrows():
         pdf.cell(25, 7, row['data'].strftime('%d/%m/%Y'), 1, 0, 'C')
         pdf.cell(25, 7, str(row['ordem_servico']), 1, 0, 'C')
-        pdf.cell(80, 7, str(row['maquina']), 1, 0, 'L')
+
+        # MultiCell para máquina
+        x_atual = pdf.get_x()
+        y_atual = pdf.get_y()
+        pdf.multi_cell(70, 7, str(row['maquina']), 1, 'L')
+        pdf.set_xy(x_atual + 70, y_atual)
+
         pdf.cell(30, 7, str(row.get('patrimonio', '')), 1, 0, 'C')
-        pdf.cell(30, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
+        pdf.cell(40, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
 
     pdf.set_font('DejaVu', 'B', 11)
-    pdf.cell(160, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R')
-    pdf.cell(30, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
+    pdf.cell(150, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R')
+    pdf.cell(40, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
 
     pdf_bytes = bytes(pdf.output())
     nome_arquivo = f"Fechamento_{cliente_selecionado.replace(' ', '_')}_{data_inicio.strftime('%Y%m%d')}-{data_fim.strftime('%Y%m%d')}.pdf"
@@ -230,9 +235,12 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
         file_name=nome_arquivo,
         mime="application/pdf",
         use_container_width=True
-    )
+    )    # --- WhatsApp e Email ---
+    dados_cliente = df_clientes[df_clientes['nome'] == cliente_selecionado].iloc[0]
+    telefone_cliente = dados_cliente.get('telefone')
+    email_cliente = dados_cliente.get('email')
 
-    # --- WhatsApp e Email ---
+
     mensagem_envio = f"""Prezado(a) {cliente_selecionado},
 
 Segue em anexo o relatório de fechamento dos serviços prestados entre {data_inicio.strftime('%d/%m/%Y')} e {data_fim.strftime('%d/%m/%Y')}, totalizando {f'R$ {total_a_pagar:,.2f}'.replace('.',',')}.
@@ -249,6 +257,8 @@ http://www.elitecncservice.com.br
 """
 
     col1, col2 = st.columns(2)
+
+    # --- Enviar via WhatsApp ---
     with col1:
         if telefone_cliente and pd.notnull(telefone_cliente):
             numero_limpo = re.sub(r'\D', '', str(telefone_cliente))
@@ -261,6 +271,7 @@ http://www.elitecncservice.com.br
             st.button("📲 Enviar via WhatsApp", use_container_width=True, disabled=True)
             st.caption("Cliente sem telefone.")
 
+    # --- Enviar por Email ---
     with col2:
         if email_cliente and pd.notnull(email_cliente):
             if st.button("✉️ Enviar por Email com Anexo", use_container_width=True, type="primary"):
