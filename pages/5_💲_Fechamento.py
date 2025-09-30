@@ -157,7 +157,7 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     pdf.set_font('DejaVu', '', 10)
     pdf.set_x(10)
     pdf.multi_cell(
-        95, 6,
+        95, 2,
         f"Nome: {cliente_selecionado}\n"
         f"Telefone: {telefone_cliente if pd.notnull(telefone_cliente) else 'N/A'}\n"
         f"Email: {email_cliente if pd.notnull(email_cliente) else 'N/A'}"
@@ -176,17 +176,17 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     pdf.set_font('DejaVu', 'B', 12); pdf.cell(0, 8, 'SERVIÇOS REALIZADOS NO PERÍODO', 'B', 1, 'L'); pdf.ln(2)
     pdf.set_font('DejaVu', 'B', 10); pdf.cell(30, 7, 'Data', 1, 0, 'C')
     pdf.cell(30, 7, 'Nº O.S.', 1, 0, 'C')
-    pdf.cell(50, 7, 'Máquina', 1, 0, 'C')
+    pdf.cell(70, 7, 'Máquina', 1, 0, 'C')
     pdf.cell(30, 7, 'Patrimônio', 1, 0, 'C')
     pdf.cell(40, 7, 'Valor Total', 1, 1, 'C')
     pdf.set_font('DejaVu', '', 10)
     for index, row in servicos_df.iterrows():
         pdf.cell(30, 7, row['data'].strftime('%d/%m/%Y'), 1, 0, 'C')
         pdf.cell(30, 7, str(row['ordem_servico']), 1, 0, 'C')
-        pdf.cell(50, 7, str(row['maquina']), 1, 0, 'C')
+        pdf.cell(70, 7, str(row['maquina']), 1, 0, 'C')
         pdf.cell(30, 7, str(row.get('patrimonio', '')), 1, 0, 'C')
         pdf.cell(40, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
-    pdf.set_font('DejaVu', 'B', 11); pdf.cell(140, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R'); pdf.cell(40, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
+    pdf.set_font('DejaVu', 'B', 11); pdf.cell(160, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R'); pdf.cell(40, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
     pdf_bytes = bytes(pdf.output())
     nome_arquivo = f"Fechamento_{cliente_selecionado.replace(' ', '_')}_{data_inicio.strftime('%Y%m%d')}-{data_fim.strftime('%Y%m%d')}.pdf"
 
