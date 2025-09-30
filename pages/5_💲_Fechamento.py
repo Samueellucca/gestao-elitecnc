@@ -23,18 +23,18 @@ elif st.session_state["authentication_status"] is None:
     st.stop()
 
 # Se chegou aqui, está logado:
-authenticator = None  # só para manter compatibilidade se precisar do logout
+authenticator = None
 st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authentication_status": None}))
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Fechamento Mensal", page_icon="💲", layout="centered")
 st.title("💲 Relatório de Fechamento por Cliente")
 
-# Conexão com o banco de dados da nuvem a partir dos "Secrets"
+# Conexão com o banco de dados
 connection_url = st.secrets["database"]["connection_url"]
 engine = create_engine(connection_url)
 
-# --- CLASSE PARA GERAR O PDF ---
+# --- CLASSE PDF ---
 class PDF(FPDF):
     def header(self):
         empresa_razao_social = "Elite CNC Service"
@@ -45,35 +45,55 @@ class PDF(FPDF):
         try:
             self.image('logo.png', 10, 1, 50)
         except FileNotFoundError:
-            self.set_xy(10, 8); self.set_font('Arial', 'B', 12); self.cell(50, 10, 'Logo N/A', 0, 1, 'L')
-        self.set_font('DejaVu', '', 9); self.set_y(8); self.set_x(-105)
+            self.set_xy(10, 8)
+            self.set_font('Arial', 'B', 12)
+            self.cell(50, 10, 'Logo N/A', 0, 1, 'L')
+        self.set_font('DejaVu', '', 9)
+        self.set_y(8); self.set_x(-105)
         self.cell(100, 5, empresa_razao_social, 0, 1, 'R'); self.set_x(-105)
         self.cell(100, 5, empresa_cnpj, 0, 1, 'R'); self.set_x(-105)
         self.cell(100, 5, empresa_endereco, 0, 1, 'R'); self.set_x(-105)
         self.cell(100, 5, empresa_contato, 0, 1, 'R'); self.set_x(-105)
         self.cell(100, 5, empresa_site, 0, 1, 'R')
-        self.set_y(35); self.set_line_width(0.5); self.line(10, self.get_y(), 200, self.get_y())
-        self.ln(3); self.set_font('DejaVu', 'B', 16); self.cell(0, 10, 'RELATÓRIO DE FECHAMENTO', 0, 1, 'C'); self.ln(5)
-    def footer(self):
-        self.set_y(-15); self.set_font('DejaVu', 'I', 8); self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
+        self.set_y(35)
+        self.set_line_width(0.5)
+        self.line(10, self.get_y(), 200, self.get_y())
+        self.ln(3)
+        self.set_font('DejaVu', 'B', 16)
+        self.cell(0, 10, 'RELATÓRIO DE FECHAMENTO', 0, 1, 'C')
+        self.ln(5)
 
-# --- FUNÇÃO DE ENVIO DE EMAIL COM ANEXO ---
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('DejaVu', 'I', 8)
+        self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
+
+# --- FUNÇÃO EMAIL ---
 def enviar_pdf_por_email(destinatario, assunto, corpo, dados_pdf, nome_arquivo_pdf):
     try:
-        remetente, senha = st.secrets["email_credentials"]["username"], st.secrets["email_credentials"]["password"]
-        msg = EmailMessage(); msg['Subject'], msg['From'], msg['To'] = assunto, remetente, destinatario
-        msg.set_content(corpo); msg.add_attachment(dados_pdf, maintype='application', subtype='pdf', filename=nome_arquivo_pdf)
+        remetente = st.secrets["email_credentials"]["username"]
+        senha = st.secrets["email_credentials"]["password"]
+        msg = EmailMessage()
+        msg['Subject'], msg['From'], msg['To'] = assunto, remetente, destinatario
+        msg.set_content(corpo)
+        msg.add_attachment(dados_pdf, maintype='application', subtype='pdf', filename=nome_arquivo_pdf)
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(remetente, senha); smtp.send_message(msg)
-        st.success(f"Email com o relatório enviado com sucesso para {destinatario}!"); return True
+            smtp.login(remetente, senha)
+            smtp.send_message(msg)
+        st.success(f"Email enviado para {destinatario} com sucesso!")
+        return True
     except Exception as e:
-        st.error(f"Falha ao enviar o email. Erro: {e}"); st.error("Verifique as credenciais em secrets.toml."); return False
+        st.error(f"Erro ao enviar email: {e}")
+        return False
 
 # --- FUNÇÕES DE DADOS ---
 @st.cache_data
 def carregar_clientes_e_dados():
     try:
-        clientes_df = pd.read_sql_query("SELECT nome, telefone, email FROM clientes ORDER BY nome", engine)
+        clientes_df = pd.read_sql_query(
+            "SELECT nome, telefone, email FROM clientes ORDER BY nome",
+            engine
+        )
         return clientes_df
     except:
         return pd.DataFrame()
@@ -81,21 +101,23 @@ def carregar_clientes_e_dados():
 def buscar_servicos_cliente(cliente, data_inicio, data_fim):
     try:
         query = f"""
-        SELECT data, ordem_servico, maquina, valor_atendimento
+        SELECT data, ordem_servico, maquina, patrimonio, valor_atendimento
         FROM entradas
-        WHERE cliente = '{cliente}' AND date(data) BETWEEN '{data_inicio}' AND '{data_fim}'
+        WHERE cliente = '{cliente}' 
+          AND date(data) BETWEEN '{data_inicio}' AND '{data_fim}'
         ORDER BY data ASC
         """
         return pd.read_sql_query(query, engine, parse_dates=['data'])
     except Exception as e:
-        st.error(f"Erro ao buscar serviços: {e}"); return pd.DataFrame()
+        st.error(f"Erro ao buscar serviços: {e}")
+        return pd.DataFrame()
 
-# --- INTERFACE DO STREAMLIT ---
+# --- INTERFACE STREAMLIT ---
 df_clientes = carregar_clientes_e_dados()
 lista_clientes_nomes = df_clientes['nome'].tolist() if not df_clientes.empty else []
 
 if not lista_clientes_nomes:
-    st.warning("Nenhum cliente cadastrado. Por favor, cadastre um cliente na página 'Clientes'.")
+    st.warning("Nenhum cliente cadastrado. Cadastre um cliente na página 'Clientes'.")
 else:
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -111,19 +133,18 @@ else:
         else:
             servicos_df = buscar_servicos_cliente(cliente_selecionado, data_inicio, data_fim)
             if servicos_df.empty:
-                st.warning(f"Nenhum serviço encontrado para '{cliente_selecionado}' no período selecionado.")
+                st.warning(f"Nenhum serviço encontrado para '{cliente_selecionado}' no período.")
             else:
-                # Armazena os resultados no session_state para os botões de ação
                 st.session_state.servicos_df = servicos_df
                 st.session_state.cliente_selecionado = cliente_selecionado
                 st.session_state.periodo = (data_inicio, data_fim)
 
-# --- Exibe a prévia e os botões de ação se um relatório foi gerado ---
+# --- EXIBIÇÃO DO RELATÓRIO ---
 if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     servicos_df = st.session_state.servicos_df
     cliente_selecionado = st.session_state.cliente_selecionado
     data_inicio, data_fim = st.session_state.periodo
-    
+
     st.markdown("---")
     st.subheader("Prévia do Relatório")
     st.dataframe(servicos_df, hide_index=True)
@@ -132,11 +153,15 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     st.markdown("---")
     st.subheader("Ações do Relatório")
 
-    # --- GERAÇÃO DO PDF EM MEMÓRIA ---
+    # --- PDF ---
     pdf = PDF()
     try:
-        pdf.add_font('DejaVu', '', 'DejaVuSans.ttf'); pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf'); pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf')
-    except: pass
+        pdf.add_font('DejaVu', '', 'DejaVuSans.ttf')
+        pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf')
+        pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf')
+    except:
+        pass
+
     dados_cliente = df_clientes[df_clientes['nome'] == cliente_selecionado].iloc[0]
     telefone_cliente = dados_cliente.get('telefone')
     email_cliente = dados_cliente.get('email')
@@ -144,27 +169,24 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Dados do Cliente (lado esquerdo)
+    # Blocos de cabeçalho
     pdf.set_font('DejaVu', 'B', 12)
-    pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 0, 'L')  # 0 = não pula linha
-    pdf.set_x(105)  # Move para metade da página
+    pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 0, 'L')
+    pdf.set_x(105)
+    pdf.cell(95, 8, 'PERÍODO REFERENTE', 'B', 1, 'L')
 
-    # Período Referente (lado direito)
-    pdf.set_font('DejaVu', 'B', 12)
-    pdf.cell(95, 8, 'PERÍODO REFERENTE', 'B', 1, 'L')  # 1 = pula linha
-
-    # Dados do Cliente (informações)
+    # Cliente
     pdf.set_font('DejaVu', '', 10)
     pdf.set_x(10)
     pdf.multi_cell(
-        95, 2,
+        95, 6,
         f"Nome: {cliente_selecionado}\n"
         f"Telefone: {telefone_cliente if pd.notnull(telefone_cliente) else 'N/A'}\n"
         f"Email: {email_cliente if pd.notnull(email_cliente) else 'N/A'}"
     )
 
-    # Período Referente (informações)
-    pdf.set_y( pdf.get_y() - 18 )  # Sobe para alinhar com o multi_cell do cliente
+    # Período
+    pdf.set_y(35)
     pdf.set_x(105)
     pdf.set_font('DejaVu', '', 10)
     pdf.multi_cell(
@@ -172,39 +194,50 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
         f"Data Inicial: {data_inicio.strftime('%d/%m/%Y')}\n"
         f"Data Final: {data_fim.strftime('%d/%m/%Y')}"
     )
+
+    # Tabela
     pdf.ln(10)
-    pdf.set_font('DejaVu', 'B', 12); pdf.cell(0, 8, 'SERVIÇOS REALIZADOS NO PERÍODO', 'B', 1, 'L'); pdf.ln(2)
-    pdf.set_font('DejaVu', 'B', 10); pdf.cell(30, 7, 'Data', 1, 0, 'C')
-    pdf.cell(30, 7, 'Nº O.S.', 1, 0, 'C')
-    pdf.cell(70, 7, 'Máquina', 1, 0, 'C')
+    pdf.set_font('DejaVu', 'B', 12)
+    pdf.cell(0, 8, 'SERVIÇOS REALIZADOS NO PERÍODO', 'B', 1, 'L')
+    pdf.ln(2)
+
+    pdf.set_font('DejaVu', 'B', 10)
+    pdf.cell(25, 7, 'Data', 1, 0, 'C')
+    pdf.cell(25, 7, 'Nº O.S.', 1, 0, 'C')
+    pdf.cell(80, 7, 'Máquina', 1, 0, 'C')
     pdf.cell(30, 7, 'Patrimônio', 1, 0, 'C')
-    pdf.cell(40, 7, 'Valor Total', 1, 1, 'C')
+    pdf.cell(30, 7, 'Valor Total', 1, 1, 'C')
+
     pdf.set_font('DejaVu', '', 10)
-    for index, row in servicos_df.iterrows():
-        pdf.cell(30, 7, row['data'].strftime('%d/%m/%Y'), 1, 0, 'C')
-        pdf.cell(30, 7, str(row['ordem_servico']), 1, 0, 'C')
-        pdf.cell(70, 7, str(row['maquina']), 1, 0, 'C')
+    for _, row in servicos_df.iterrows():
+        pdf.cell(25, 7, row['data'].strftime('%d/%m/%Y'), 1, 0, 'C')
+        pdf.cell(25, 7, str(row['ordem_servico']), 1, 0, 'C')
+        pdf.cell(80, 7, str(row['maquina']), 1, 0, 'L')
         pdf.cell(30, 7, str(row.get('patrimonio', '')), 1, 0, 'C')
-        pdf.cell(40, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
-    pdf.set_font('DejaVu', 'B', 11); pdf.cell(160, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R'); pdf.cell(40, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
+        pdf.cell(30, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
+
+    pdf.set_font('DejaVu', 'B', 11)
+    pdf.cell(160, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R')
+    pdf.cell(30, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
+
     pdf_bytes = bytes(pdf.output())
     nome_arquivo = f"Fechamento_{cliente_selecionado.replace(' ', '_')}_{data_inicio.strftime('%Y%m%d')}-{data_fim.strftime('%Y%m%d')}.pdf"
 
-    # --- BOTÃO DE DOWNLOAD ---
-    st.download_button(label="📥 Baixar PDF", data=pdf_bytes, file_name=nome_arquivo, mime="application/pdf", use_container_width=True)
-    
-    # --- BOTÕES DE WHATSAPP E EMAIL ---
-    dados_cliente = df_clientes[df_clientes['nome'] == cliente_selecionado].iloc[0]
-    telefone_cliente = dados_cliente.get('telefone')
-    email_cliente = dados_cliente.get('email')
+    # Botão Download
+    st.download_button(
+        label="📥 Baixar PDF",
+        data=pdf_bytes,
+        file_name=nome_arquivo,
+        mime="application/pdf",
+        use_container_width=True
+    )
 
-    # Mensagem para envio
+    # --- WhatsApp e Email ---
     mensagem_envio = f"""Prezado(a) {cliente_selecionado},
 
 Segue em anexo o relatório de fechamento dos serviços prestados entre {data_inicio.strftime('%d/%m/%Y')} e {data_fim.strftime('%d/%m/%Y')}, totalizando {f'R$ {total_a_pagar:,.2f}'.replace('.',',')}.
 
 Qualquer dúvida, estamos à disposição.
-
 
 Atenciosamente,
 
@@ -214,19 +247,20 @@ WhatsApp: (11) 97761-7009
 elitecncservice@gmail.com
 http://www.elitecncservice.com.br
 """
-    
+
     col1, col2 = st.columns(2)
     with col1:
         if telefone_cliente and pd.notnull(telefone_cliente):
             numero_limpo = re.sub(r'\D', '', str(telefone_cliente))
-            if not numero_limpo.startswith('55'): numero_limpo = '55' + numero_limpo
+            if not numero_limpo.startswith('55'):
+                numero_limpo = '55' + numero_limpo
             mensagem_url = quote(mensagem_envio)
             link_whatsapp = f"https://wa.me/{numero_limpo}?text={mensagem_url}"
             st.link_button("📲 Enviar via WhatsApp", url=link_whatsapp, use_container_width=True)
         else:
             st.button("📲 Enviar via WhatsApp", use_container_width=True, disabled=True)
             st.caption("Cliente sem telefone.")
-            
+
     with col2:
         if email_cliente and pd.notnull(email_cliente):
             if st.button("✉️ Enviar por Email com Anexo", use_container_width=True, type="primary"):
