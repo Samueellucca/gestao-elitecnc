@@ -160,9 +160,9 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     pdf.set_font('DejaVu', '', 10)
     for index, row in servicos_df.iterrows():
         pdf.cell(30, 7, row['data'].strftime('%d/%m/%Y'), 1, 0, 'C')
-        pdf.cell(40, 7, str(row['ordem_servico']), 1, 0, 'C')
+        pdf.cell(20, 7, str(row['ordem_servico']), 1, 0, 'C')
         pdf.cell(50, 7, str(row['maquina']), 1, 0, 'C')
-        pdf.cell(40, 7, str(row.get('patrimonio', '')), 1, 0, 'C')
+        pdf.cell(30, 7, str(row.get('patrimonio', '')), 1, 0, 'C')
         pdf.cell(40, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
     pdf.set_font('DejaVu', 'B', 11); pdf.cell(150, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R'); pdf.cell(40, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
     pdf_bytes = bytes(pdf.output())
