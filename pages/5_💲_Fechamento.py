@@ -195,7 +195,7 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     )
 
     # Tabela
-    pdf.ln(20)
+    pdf.ln(40)
     pdf.set_font('DejaVu', 'B', 12)
     pdf.cell(0, 8, 'SERVIÇOS REALIZADOS NO PERÍODO', 'B', 1, 'L')
     pdf.ln(2)
