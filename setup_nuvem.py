@@ -3,22 +3,19 @@ import sqlalchemy
 from sqlalchemy import text
 
 # 🔗 URL de conexão Supabase
-# Troque "211218Lucca" pela sua senha real (faça URL encoding se tiver caracteres especiais)
+
 DATABASE_URL = "postgresql://postgres.ipthtamwddcocqrpzkvh:sslguimaraes271821@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
 
 try:
     engine = sqlalchemy.create_engine(DATABASE_URL)
 
-    def create_tables():
+    def create_or_update_tables():
         with engine.connect() as connection:
             print("Conectado ao banco de dados na nuvem!")
 
-            # Apaga tabelas antigas (se existirem)
-            connection.execute(text("DROP TABLE IF EXISTS entradas, saidas, clientes;"))
-
-            # Cria tabela de clientes
+            # ✅ Cria tabela de clientes se não existir
             connection.execute(text("""
-            CREATE TABLE clientes (
+            CREATE TABLE IF NOT EXISTS clientes (
                 id SERIAL PRIMARY KEY,
                 nome VARCHAR(255) UNIQUE NOT NULL,
                 telefone VARCHAR(255),
@@ -26,9 +23,9 @@ try:
                 endereco TEXT
             );"""))
 
-            # Cria tabela de saídas
+            # ✅ Cria tabela de saídas se não existir
             connection.execute(text("""
-            CREATE TABLE saidas (
+            CREATE TABLE IF NOT EXISTS saidas (
                 id SERIAL PRIMARY KEY,
                 data TIMESTAMP NOT NULL,
                 tipo_conta VARCHAR(255),
@@ -37,9 +34,9 @@ try:
                 usuario_lancamento VARCHAR(255)
             );"""))
 
-            # Cria tabela de entradas
+            # ✅ Cria tabela de entradas se não existir
             connection.execute(text("""
-            CREATE TABLE entradas (
+            CREATE TABLE IF NOT EXISTS entradas (
                 id SERIAL PRIMARY KEY,
                 data TIMESTAMP NOT NULL,
                 ordem_servico VARCHAR(255),
@@ -60,11 +57,15 @@ try:
                 hora_fim TEXT
             );"""))
 
+            # ✅ Adiciona colunas novas sem apagar dados
+            connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_deslocamento NUMERIC(10, 2);"))
+            connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS qtd_tecnicos INTEGER;"))
+
             connection.commit()
-            print("✅ Tabelas criadas com sucesso!")
+            print("✅ Estrutura atualizada sem perder dados!")
 
     if __name__ == "__main__":
-        create_tables()
+        create_or_update_tables()
 
 except Exception as e:
     print(f"❌ Ocorreu um erro: {e}")
