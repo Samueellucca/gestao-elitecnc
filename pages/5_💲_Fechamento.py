@@ -141,7 +141,13 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     pdf.set_font('DejaVu', 'B', 12)
     pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 1, 'L')
     pdf.ln(2)
-    pdf.set_font('DejaVu', '', 10); pdf.multi_cell(95, 6, f"Nome: {cliente_selecionado}")
+    pdf.set_font('DejaVu', '', 10)
+    pdf.multi_cell(
+        95, 6,
+        f"Nome: {cliente_selecionado}\n"
+        f"Telefone: {telefone_cliente if pd.notnull(telefone_cliente) else 'N/A'}\n"
+        f"Email: {email_cliente if pd.notnull(email_cliente) else 'N/A'}"
+    )
     pdf.set_y(pdf.get_y() - 16); pdf.set_x(105); pdf.set_font('DejaVu', 'B', 12)
     pdf.cell(95, 8, 'PERÍODO REFERENTE', 'B', 1, 'L'); pdf.ln(2); pdf.set_x(105); pdf.set_font('DejaVu', '', 10)
     pdf.multi_cell(95, 6, f"Data Inicial: {data_inicio.strftime('%d/%m/%Y')}\nData Final: {data_fim.strftime('%d/%m/%Y')}"); pdf.ln(10)
