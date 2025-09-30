@@ -137,6 +137,10 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     try:
         pdf.add_font('DejaVu', '', 'DejaVuSans.ttf'); pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf'); pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf')
     except: pass
+    dados_cliente = df_clientes[df_clientes['nome'] == cliente_selecionado].iloc[0]
+    telefone_cliente = dados_cliente.get('telefone')
+    email_cliente = dados_cliente.get('email')
+
     pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font('DejaVu', 'B', 12)
     pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 1, 'L')
