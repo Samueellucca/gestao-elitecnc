@@ -3,7 +3,6 @@ import sqlalchemy
 from sqlalchemy import text
 
 # 🔗 URL de conexão Supabase
-
 DATABASE_URL = "postgresql://postgres.ipthtamwddcocqrpzkvh:sslguimaraes271821@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
 
 try:
@@ -11,9 +10,9 @@ try:
 
     def create_or_update_tables():
         with engine.connect() as connection:
-            print("Conectado ao banco de dados na nuvem!")
+            print("🔗 Conectado ao banco de dados!")
 
-            # ✅ Cria tabela de clientes se não existir
+            # --- Criar tabelas se não existirem ---
             connection.execute(text("""
             CREATE TABLE IF NOT EXISTS clientes (
                 id SERIAL PRIMARY KEY,
@@ -23,7 +22,6 @@ try:
                 endereco TEXT
             );"""))
 
-            # ✅ Cria tabela de saídas se não existir
             connection.execute(text("""
             CREATE TABLE IF NOT EXISTS saidas (
                 id SERIAL PRIMARY KEY,
@@ -34,7 +32,6 @@ try:
                 usuario_lancamento VARCHAR(255)
             );"""))
 
-            # ✅ Cria tabela de entradas se não existir
             connection.execute(text("""
             CREATE TABLE IF NOT EXISTS entradas (
                 id SERIAL PRIMARY KEY,
@@ -57,16 +54,56 @@ try:
                 hora_fim TEXT
             );"""))
 
-            # ✅ Adiciona colunas novas sem apagar dados
+            # --- Garantir colunas adicionais em entradas ---
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_deslocamento NUMERIC(10, 2);"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS qtd_tecnicos INTEGER;"))
 
+            # --- Ativar RLS e criar políticas ---
+            tabelas = ["clientes", "saidas", "entradas"]
+            for tabela in tabelas:
+                connection.execute(text(f"ALTER TABLE {tabela} ENABLE ROW LEVEL SECURITY;"))
+
+                # Política de leitura: usuário só vê seus registros
+                connection.execute(text(f"""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_policies
+                        WHERE schemaname = 'public'
+                        AND tablename = '{tabela}'
+                        AND policyname = 'user_can_select_own'
+                    ) THEN
+                        CREATE POLICY user_can_select_own ON {tabela}
+                        FOR SELECT
+                        USING (usuario_lancamento = auth.uid()::text);
+                    END IF;
+                END
+                $$;
+                """))
+
+                # Política de inserção: usuário só pode inserir registros próprios
+                connection.execute(text(f"""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_policies
+                        WHERE schemaname = 'public'
+                        AND tablename = '{tabela}'
+                        AND policyname = 'user_can_insert_own'
+                    ) THEN
+                        CREATE POLICY user_can_insert_own ON {tabela}
+                        FOR INSERT
+                        WITH CHECK (usuario_lancamento = auth.uid()::text);
+                    END IF;
+                END
+                $$;
+                """))
+
             connection.commit()
-            print("✅ Estrutura atualizada sem perder dados!")
+            print("✅ Estrutura atualizada + RLS ativado com políticas seguras!")
 
     if __name__ == "__main__":
         create_or_update_tables()
 
 except Exception as e:
-    print(f"❌ Ocorreu um erro: {e}")
-    print("Verifique a URL de conexão ou se o 'psycopg2-binary' está instalado.")
+    print(f"❌ Erro: {e}")
