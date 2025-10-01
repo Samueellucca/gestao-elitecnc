@@ -12,6 +12,22 @@ import holidays
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Dashboard Financeiro", page_icon="💰", layout="wide")
 
+def _to_int_safe(val, default=1):
+    try:
+        if val is None or val == "":
+            return default
+        return int(float(val))
+    except Exception:
+        return default
+
+def _to_float_safe(val, default=0.0):
+    try:
+        if val is None or val == "":
+            return default
+        return float(val)
+    except Exception:
+        return default
+
 # --- CARREGANDO CONFIGURAÇÕES DE LOGIN ---
 with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
@@ -35,6 +51,7 @@ if st.session_state["authentication_status"]:
     name = st.session_state["name"]
     username = st.session_state["username"]
 
+    
     # --- FUNÇÕES DE BANCO DE DADOS ---
     @st.cache_data
     def carregar_dados():
@@ -127,12 +144,12 @@ if st.session_state["authentication_status"]:
         descricao_servico_default = edit_data.get('descricao_servico', "") if is_editing_entrada and edit_data else ""
         patrimonio_default = edit_data.get('patrimonio', "") if is_editing_entrada and edit_data else ""
         maquina_default = edit_data.get('maquina', "") if is_editing_entrada and edit_data else ""
-        pedagio_default = edit_data.get('pedagio', 0.0) if is_editing_entrada and edit_data else 0.0
-        refeicao_default = edit_data.get('refeicao', 0.0) if is_editing_entrada and edit_data else 0.0
-        pecas_default = edit_data.get('pecas', 0.0) if is_editing_entrada and edit_data else 0.0
+        pedagio_default = _to_float_safe(edit_data.get('pedagio')) if is_editing_entrada and edit_data else 0.0
+        refeicao_default = _to_float_safe(edit_data.get('refeicao')) if is_editing_entrada and edit_data else 0.0
+        pecas_default = _to_float_safe(edit_data.get('pecas')) if is_editing_entrada and edit_data else 0.0
         cliente_default = edit_data.get('cliente', "") if is_editing_entrada and edit_data else ""
-        qtd_tecnicos_default = edit_data.get('qtd_tecnicos', 1) if is_editing_entrada and edit_data else 1
-        valor_deslocamento_default = edit_data.get('valor_deslocamento', 0.0) if is_editing_entrada and edit_data else 0.0
+        qtd_tecnicos_default = _to_int_safe(edit_data.get('qtd_tecnicos')) if is_editing_entrada and edit_data else 1
+        valor_deslocamento_default = _to_float_safe(edit_data.get('valor_deslocamento')) if is_editing_entrada and edit_data else 0.0
 
         # --- CAMPOS DO FORMULÁRIO ---
         data_atendimento = st.date_input("Data do Atendimento", value=data_default)
@@ -147,7 +164,8 @@ if st.session_state["authentication_status"]:
         st.markdown("---")
         st.write("Cálculo de Horas")
         qtd_tecnicos = st.number_input("Quantidade de Técnicos", min_value=1, step=1, value=qtd_tecnicos_default)
-
+        qtd_tecnicos = int(qtd_tecnicos)   # força o tipo int
+        
         col_hora1, col_hora2 = st.columns(2)
         with col_hora1:
             hora_inicio = st.time_input("Hora de Início", value=hora_inicio_default, step=60)
@@ -157,11 +175,11 @@ if st.session_state["authentication_status"]:
         st.markdown("---")
         st.write("Valores e Quantidades:")
         valor_hora_input = st.number_input("Valor da Hora Técnica (R$)", min_value=0.0, format="%.2f", value=VALOR_HORA_TECNICA)
-        valor_deslocamento = st.number_input("Valor Deslocamento do Técnico (R$)", min_value=0.0, format="%.2f", value=valor_deslocamento_default)
+        valor_deslocamento = st.number_input("Valor Deslocamento do Técnico (R$)", min_value=0.0, step=1.0, value=valor_deslocamento_default)
         qtd_km = st.number_input(f"Qtd KM Rodados (R$ {VALOR_POR_KM:.2f}/km)", min_value=0.0, format="%.2f")
-        refeicao = st.number_input("Valor da Refeição", min_value=0.0, format="%.2f", value=refeicao_default)
-        pecas_entrada = st.number_input("Valor das Peças (Venda)", min_value=0.0, format="%.2f", value=pecas_default)
-        pedagio = st.number_input("Valor do Pedágio", min_value=0.0, format="%.2f", value=pedagio_default)
+        refeicao = st.number_input("Valor da Refeição",min_value=0.0, step=1.0, value=refeicao_default)
+        pecas_entrada = st.number_input("Valor das Peças (Venda)", min_value=0.0, step=1.0, value=pecas_default)
+        pedagio = st.number_input("Valor do Pedágio", min_value=0.0, step=1.0, value=pedagio_default)
 
         submit_entrada = st.form_submit_button("Salvar Alterações" if is_editing_entrada else "Lançar Entrada")
 
