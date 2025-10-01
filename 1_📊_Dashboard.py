@@ -165,99 +165,101 @@ if st.session_state["authentication_status"]:
 
         submit_entrada = st.form_submit_button("Salvar Alterações" if is_editing_entrada else "Lançar Entrada")
 
-        if submit_entrada:
-            # --- NOVA LÓGICA DE CÁLCULO DE HORAS ---
-            inicio_trabalho = datetime.combine(data_atendimento, hora_inicio)
-            fim_trabalho = datetime.combine(data_atendimento, hora_fim)
-            if fim_trabalho <= inicio_trabalho:
-                fim_trabalho += timedelta(days=1)
+    if submit_entrada:
+        # --- NOVA LÓGICA DE CÁLCULO DE HORAS ---
+        inicio_trabalho = datetime.combine(data_atendimento, hora_inicio)
+        fim_trabalho = datetime.combine(data_atendimento, hora_fim)
+        if fim_trabalho <= inicio_trabalho:
+            fim_trabalho += timedelta(days=1)
 
-            periodo_normal_inicio = datetime.combine(inicio_trabalho.date(), time(7, 0))
-            periodo_normal_fim = datetime.combine(inicio_trabalho.date(), time(17, 0))
-            periodo_almoco_inicio = datetime.combine(inicio_trabalho.date(), time(12, 0))
-            periodo_almoco_fim = datetime.combine(inicio_trabalho.date(), time(13, 0))
+        periodo_normal_inicio = datetime.combine(inicio_trabalho.date(), time(7, 0))
+        periodo_normal_fim = datetime.combine(inicio_trabalho.date(), time(17, 0))
+        periodo_almoco_inicio = datetime.combine(inicio_trabalho.date(), time(12, 0))
+        periodo_almoco_fim = datetime.combine(inicio_trabalho.date(), time(13, 0))
 
-            def calcular_sobreposicao(inicio1, fim1, inicio2, fim2):
-                sobreposicao_inicio = max(inicio1, inicio2)
-                sobreposicao_fim = min(fim1, fim2)
-                if sobreposicao_fim > sobreposicao_inicio:
-                    return (sobreposicao_fim - sobreposicao_inicio).total_seconds()
-                return 0
+        def calcular_sobreposicao(inicio1, fim1, inicio2, fim2):
+            sobreposicao_inicio = max(inicio1, inicio2)
+            sobreposicao_fim = min(fim1, fim2)
+            if sobreposicao_fim > sobreposicao_inicio:
+                return (sobreposicao_fim - sobreposicao_inicio).total_seconds()
+            return 0
 
-            segundos_almoco = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_almoco_inicio, periodo_almoco_fim)
-            brasil_holidays = holidays.Brazil(years=inicio_trabalho.year)
-            is_dia_util = inicio_trabalho.weekday() < 5 and inicio_trabalho.date() not in brasil_holidays
+        segundos_almoco = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_almoco_inicio, periodo_almoco_fim)
+        brasil_holidays = holidays.Brazil(years=inicio_trabalho.year)
+        is_dia_util = inicio_trabalho.weekday() < 5 and inicio_trabalho.date() not in brasil_holidays
 
-            segundos_normais = 0
-            segundos_extra_50 = 0
-            segundos_extra_100 = 0
+        duracao_total_bruta_segundos = (fim_trabalho - inicio_trabalho).total_seconds()
+        duracao_total_liquida_segundos = duracao_total_bruta_segundos - segundos_almoco
 
-            duracao_total_bruta_segundos = (fim_trabalho - inicio_trabalho).total_seconds()
-            duracao_total_liquida_segundos = duracao_total_bruta_segundos - segundos_almoco
+        segundos_normais = segundos_extra_50 = segundos_extra_100 = 0
+        if is_dia_util:
+            segundos_normais_brutos = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_normal_inicio, periodo_normal_fim)
+            segundos_normais = segundos_normais_brutos - segundos_almoco
+            segundos_extra_50 = duracao_total_liquida_segundos - segundos_normais
+        else:
+            segundos_extra_100 = duracao_total_liquida_segundos
 
-            if is_dia_util:
-                segundos_normais_brutos = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_normal_inicio, periodo_normal_fim)
-                segundos_normais = segundos_normais_brutos - segundos_almoco
-                segundos_extra_50 = duracao_total_liquida_segundos - segundos_normais
-            else:
-                segundos_extra_100 = duracao_total_liquida_segundos
+        horas_normais = segundos_normais / 3600
+        horas_extra_50 = segundos_extra_50 / 3600
+        horas_extra_100 = segundos_extra_100 / 3600
 
-            horas_normais = segundos_normais / 3600
-            horas_extra_50 = segundos_extra_50 / 3600
-            horas_extra_100 = segundos_extra_100 / 3600
+        valor_horas_normais = (valor_hora_input * horas_normais) * qtd_tecnicos
+        valor_horas_50 = ((valor_hora_input * 1.5) * horas_extra_50) * qtd_tecnicos
+        valor_horas_100 = ((valor_hora_input * 2.0) * horas_extra_100) * qtd_tecnicos
+        valor_km_final = qtd_km * VALOR_POR_KM
+        valor_atendimento_calculado = (
+            valor_horas_normais +
+            valor_horas_50 +
+            valor_horas_100 +
+            valor_km_final +
+            refeicao +
+            pecas_entrada +
+            pedagio +
+            (valor_deslocamento * qtd_tecnicos)
+        )
 
-            valor_horas_normais = (valor_hora_input * horas_normais) * qtd_tecnicos
-            valor_horas_50 = ((valor_hora_input * 1.5) * horas_extra_50) * qtd_tecnicos
-            valor_horas_100 = ((valor_hora_input * 2.0) * horas_extra_100) * qtd_tecnicos
-            valor_km_final = qtd_km * VALOR_POR_KM
-            valor_atendimento_calculado = (
-                valor_horas_normais +
-                valor_horas_50 +
-                valor_horas_100 +
-                valor_km_final +
-                refeicao +
-                pecas_entrada +
-                pedagio +
-                (valor_deslocamento * qtd_tecnicos)  # Multiplica pelo número de técnicos
-            )
+        # --- MONTAR DICIONÁRIO DE LANÇAMENTO ---
+        dados_lancamento = {
+            'data': pd.to_datetime(inicio_trabalho),
+            'hora_inicio': hora_inicio.strftime('%H:%M:%S'),
+            'hora_fim': hora_fim.strftime('%H:%M:%S'),
+            'ordem_servico': os_id or "",
+            'descricao_servico': descricao_servico or "",
+            'patrimonio': patrimonio or "",
+            'maquina': maquina or "",
+            'cliente': cliente or "",
+            'valor_atendimento': float(valor_atendimento_calculado),
+            'horas_tecnicas': float(valor_horas_normais),
+            'horas_tecnicas_50': float(valor_horas_50),
+            'horas_tecnicas_100': float(valor_horas_100),
+            'km': float(valor_km_final),
+            'refeicao': float(refeicao),
+            'pecas': float(pecas_entrada),
+            'pedagio': float(pedagio),
+            'usuario_lancamento': username,
+            'qtd_tecnicos': int(qtd_tecnicos),
+            'valor_deslocamento': float(valor_deslocamento),
+            'valor_deslocamento_total': float(valor_deslocamento * qtd_tecnicos),
+            'valor_hora_tecnica_total': float(valor_hora_input * qtd_tecnicos),
+            'horas_normais': float(horas_normais),
+            'horas_extra_50': float(horas_extra_50),
+            'horas_extra_100': float(horas_extra_100)
+        }
 
-            dados_lancamento = {
-                'data': inicio_trabalho,
-                'hora_inicio': hora_inicio.strftime('%H:%M:%S'),
-                'hora_fim': hora_fim.strftime('%H:%M:%S'),
-                'ordem_servico': os_id,
-                'descricao_servico': descricao_servico,
-                'patrimonio': patrimonio,
-                'maquina': maquina,
-                'cliente': cliente,
-                'valor_atendimento': valor_atendimento_calculado,
-                'horas_tecnicas': valor_horas_normais,
-                'horas_tecnicas_50': valor_horas_50,
-                'horas_tecnicas_100': valor_horas_100,
-                'km': valor_km_final,
-                'refeicao': refeicao,
-                'pecas': pecas_entrada,
-                'pedagio': pedagio,
-                'usuario_lancamento': username,
-                'qtd_tecnicos': qtd_tecnicos,
-                'valor_deslocamento': valor_deslocamento,
-                'valor_deslocamento_total': valor_deslocamento * qtd_tecnicos,
-                'valor_hora_tecnica_total': valor_hora_input * qtd_tecnicos,
-                'horas_normais': horas_normais,
-                'horas_extra_50': horas_extra_50,
-                'horas_extra_100': horas_extra_100
-            }
+        if is_editing_entrada:
+            atualizar_lancamento('entradas', st.session_state.edit_id, dados_lancamento)
+            st.sidebar.success("Entrada atualizada!")
+        else:
+            # --- FILTRAR APENAS COLUNAS EXISTENTES NO BANCO ---
+            colunas_existentes = pd.read_sql("SELECT * FROM entradas LIMIT 1", engine).columns
+            dados_lancamento_filtrado = {k: v for k, v in dados_lancamento.items() if k in colunas_existentes}
+            pd.DataFrame([dados_lancamento_filtrado]).to_sql('entradas', engine, if_exists='append', index=False)
+            st.sidebar.success("Entrada lançada!")
 
-            if is_editing_entrada:
-                atualizar_lancamento('entradas', st.session_state.edit_id, dados_lancamento)
-                st.sidebar.success("Entrada atualizada!")
-            else:
-                pd.DataFrame([dados_lancamento]).to_sql('entradas', engine, if_exists='append', index=False)
-                st.sidebar.success(f"Entrada lançada!")
+        st.session_state.edit_id, st.session_state.edit_table = None, None
+        st.cache_data.clear()
+        st.rerun()
 
-            st.session_state.edit_id, st.session_state.edit_table = None, None
-            st.cache_data.clear()
-            st.rerun()
 
     # --- FORMULÁRIO DE SAÍDAS ---
     is_editing_saida = st.session_state.edit_id is not None and st.session_state.edit_table == 'saidas'
