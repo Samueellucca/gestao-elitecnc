@@ -58,7 +58,7 @@ def carregar_os_e_clientes():
         # CORREÇÃO: Voltamos a usar "e.rowid as id"
         query = """
          SELECT 
-            e.rowid as id, 
+            e.id as id, 
             e.ordem_servico, 
             e.cliente, 
             e.data,

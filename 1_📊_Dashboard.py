@@ -218,7 +218,7 @@ if st.session_state["authentication_status"]:
                 refeicao +
                 pecas_entrada +
                 pedagio +
-                valor_deslocamento
+                (valor_deslocamento * qtd_tecnicos)  # Multiplica pelo número de técnicos
             )
 
             dados_lancamento = {
@@ -240,7 +240,12 @@ if st.session_state["authentication_status"]:
                 'pedagio': pedagio,
                 'usuario_lancamento': username,
                 'qtd_tecnicos': qtd_tecnicos,
-                'valor_deslocamento': valor_deslocamento
+                'valor_deslocamento': valor_deslocamento,
+                'valor_deslocamento_total': valor_deslocamento * qtd_tecnicos,
+                'valor_hora_tecnica_total': valor_hora_input * qtd_tecnicos,
+                'horas_normais': horas_normais,
+                'horas_extra_50': horas_extra_50,
+                'horas_extra_100': horas_extra_100
             }
 
             if is_editing_entrada:
