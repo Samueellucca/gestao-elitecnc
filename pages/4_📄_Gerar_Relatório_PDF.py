@@ -203,7 +203,7 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
             "Horas Técnicas Normais": os_details.get('horas_tecnicas', 0),
             "Horas Técnicas 50%": os_details.get('horas_tecnicas_50', 0),
             "Horas Técnicas 100%": os_details.get('horas_tecnicas_100', 0),
-            "Valor de Deslocamento": os_details.get('valor_deslocamento', 0),
+            "Valor de Deslocamento": os_details.get('valor_deslocamento_total', 0),
             "Deslocamento (KM)": os_details.get('km', 0),
             "Refeição": os_details.get('refeicao', 0),
             "Peças": os_details.get('pecas', 0),
