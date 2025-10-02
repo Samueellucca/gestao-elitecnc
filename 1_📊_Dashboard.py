@@ -197,6 +197,20 @@ if st.session_state["authentication_status"]:
 
     if submit_entrada:
         # --- NOVA LÓGICA DE CÁLCULO DE HORAS ---
+        # CORREÇÃO: Preservar valores de horas se os horários não mudaram na edição
+        valor_horas_normais = 0
+        valor_horas_50 = 0
+        valor_horas_100 = 0
+        horas_normais = 0
+        horas_extra_50 = 0
+        horas_extra_100 = 0
+
+        horarios_mudaram = True # Assume que mudou por padrão
+        if is_editing_entrada and edit_data:
+            hora_inicio_antiga = datetime.strptime(edit_data.get('hora_inicio', '00:00:00'), '%H:%M:%S').time()
+            hora_fim_antiga = datetime.strptime(edit_data.get('hora_fim', '00:00:00'), '%H:%M:%S').time()
+            horarios_mudaram = not (hora_inicio == hora_inicio_antiga and hora_fim == hora_fim_antiga)
+
         inicio_trabalho = datetime.combine(data_atendimento, hora_inicio)
         fim_trabalho = datetime.combine(data_atendimento, hora_fim)
         if fim_trabalho <= inicio_trabalho:
@@ -233,11 +247,18 @@ if st.session_state["authentication_status"]:
         horas_extra_50 = segundos_extra_50 / 3600
         horas_extra_100 = segundos_extra_100 / 3600
 
-        valor_horas_normais = (valor_hora_input * horas_normais) * qtd_tecnicos
-        valor_horas_50 = ((valor_hora_input * 1.5) * horas_extra_50) * qtd_tecnicos
-        valor_horas_100 = ((valor_hora_input * 2.0) * horas_extra_100) * qtd_tecnicos
+        # Se os horários não mudaram na edição, reutiliza os valores salvos. Senão, calcula os novos.
+        if not horarios_mudaram and is_editing_entrada and edit_data:
+            valor_horas_normais = _to_float_safe(edit_data.get('horas_tecnicas', 0))
+            valor_horas_50 = _to_float_safe(edit_data.get('horas_tecnicas_50', 0))
+            valor_horas_100 = _to_float_safe(edit_data.get('horas_tecnicas_100', 0))
+        else:
+            valor_horas_normais = (valor_hora_input * horas_normais) * qtd_tecnicos
+            valor_horas_50 = ((valor_hora_input * 1.5) * horas_extra_50) * qtd_tecnicos
+            valor_horas_100 = ((valor_hora_input * 2.0) * horas_extra_100) * qtd_tecnicos
+
         valor_km_final = qtd_km * VALOR_POR_KM
-        valor_atendimento_calculado = (
+        valor_atendimento_calculado = ( # O cálculo do total agora usa os valores corretos
             valor_horas_normais +
             valor_horas_50 +
             valor_horas_100 +
