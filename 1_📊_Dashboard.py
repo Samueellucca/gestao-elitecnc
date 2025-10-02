@@ -12,21 +12,23 @@ import holidays
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Dashboard Financeiro", page_icon="💰", layout="wide")
 
-def _to_int_safe(val, default=1):
+def safe_number(value, default=0.0):
+    """Converte valor para float seguro.
+    Se vier None, vazio, NaN ou inválido → retorna default."""
     try:
-        if val is None or val == "":
+        if value is None or str(value).strip() == "":
             return default
-        return int(float(val))
+        val = float(value)
+        if pd.isna(val):
+            return default
+        return val
     except Exception:
         return default
 
-def _to_float_safe(val, default=0.0):
-    try:
-        if val is None or val == "":
-            return default
-        return float(val)
-    except Exception:
-        return default
+def safe_int(value, default=1):
+    """Converte valor para int seguro. Retorna default se a conversão falhar."""
+    return int(safe_number(value, default))
+
 
 # --- CARREGANDO CONFIGURAÇÕES DE LOGIN ---
 with open('config.yaml') as file:
@@ -148,19 +150,19 @@ if st.session_state["authentication_status"]:
         descricao_servico_default = edit_data.get('descricao_servico', "") if is_editing_entrada and edit_data else ""
         patrimonio_default = edit_data.get('patrimonio', "") if is_editing_entrada and edit_data else ""
         maquina_default = edit_data.get('maquina', "") if is_editing_entrada and edit_data else ""
-        pedagio_default = _to_float_safe(edit_data.get('pedagio')) if is_editing_entrada and edit_data else 0.0
-        refeicao_default = _to_float_safe(edit_data.get('refeicao')) if is_editing_entrada and edit_data else 0.0
-        pecas_default = _to_float_safe(edit_data.get('pecas')) if is_editing_entrada and edit_data else 0.0
+        pedagio_default = safe_number(edit_data.get('pedagio')) if is_editing_entrada and edit_data else 0.0
+        refeicao_default = safe_number(edit_data.get('refeicao')) if is_editing_entrada and edit_data else 0.0
+        pecas_default = safe_number(edit_data.get('pecas')) if is_editing_entrada and edit_data else 0.0
         cliente_default = edit_data.get('cliente', "") if is_editing_entrada and edit_data else ""
-        qtd_tecnicos_default = _to_int_safe(edit_data.get('qtd_tecnicos')) if is_editing_entrada and edit_data else 1
+        qtd_tecnicos_default = safe_int(edit_data.get('qtd_tecnicos')) if is_editing_entrada and edit_data else 1
         
         # --- CORREÇÃO: Carregar valores calculados para edição ---
         # O valor de KM é armazenado como o valor final (R$), então precisamos fazer o cálculo inverso para obter a quantidade.
-        km_valor_default = _to_float_safe(edit_data.get('km')) if is_editing_entrada and edit_data else 0.0
+        km_valor_default = safe_number(edit_data.get('km')) if is_editing_entrada and edit_data else 0.0
         qtd_km_default = km_valor_default / VALOR_POR_KM if VALOR_POR_KM > 0 else 0.0
 
-        valor_deslocamento_default = _to_float_safe(edit_data.get('valor_deslocamento')) if is_editing_entrada and edit_data else 0.0
-        valor_laboratorio_default = _to_float_safe(edit_data.get('valor_laboratorio')) if is_editing_entrada and edit_data else 0.0
+        valor_deslocamento_default = safe_number(edit_data.get('valor_deslocamento')) if is_editing_entrada and edit_data else 0.0
+        valor_laboratorio_default = safe_number(edit_data.get('valor_laboratorio')) if is_editing_entrada and edit_data else 0.0
 
         # --- CAMPOS DO FORMULÁRIO ---
         data_atendimento = st.date_input("Data do Atendimento", value=data_default)
@@ -197,22 +199,10 @@ if st.session_state["authentication_status"]:
 
     if submit_entrada:
         # --- NOVA LÓGICA DE CÁLCULO DE HORAS ---
-        # CORREÇÃO: Preservar valores de horas se os horários não mudaram na edição
-        valor_horas_normais = 0
-        valor_horas_50 = 0
-        valor_horas_100 = 0
-        horas_normais = 0
-        horas_extra_50 = 0
-        horas_extra_100 = 0
-
-        horarios_mudaram = True # Assume que mudou por padrão
-        if is_editing_entrada and edit_data:
-            hora_inicio_antiga = datetime.strptime(edit_data.get('hora_inicio', '00:00:00'), '%H:%M:%S').time()
-            hora_fim_antiga = datetime.strptime(edit_data.get('hora_fim', '00:00:00'), '%H:%M:%S').time()
-            horarios_mudaram = not (hora_inicio == hora_inicio_antiga and hora_fim == hora_fim_antiga)
-
+        # Combina data e hora para obter datetimes completos
         inicio_trabalho = datetime.combine(data_atendimento, hora_inicio)
         fim_trabalho = datetime.combine(data_atendimento, hora_fim)
+        # Se o trabalho termina no dia seguinte
         if fim_trabalho <= inicio_trabalho:
             fim_trabalho += timedelta(days=1)
 
@@ -221,6 +211,7 @@ if st.session_state["authentication_status"]:
         periodo_almoco_inicio = datetime.combine(inicio_trabalho.date(), time(12, 0))
         periodo_almoco_fim = datetime.combine(inicio_trabalho.date(), time(13, 0))
 
+        # Função auxiliar para calcular sobreposição de tempo em segundos
         def calcular_sobreposicao(inicio1, fim1, inicio2, fim2):
             sobreposicao_inicio = max(inicio1, inicio2)
             sobreposicao_fim = min(fim1, fim2)
@@ -228,15 +219,19 @@ if st.session_state["authentication_status"]:
                 return (sobreposicao_fim - sobreposicao_inicio).total_seconds()
             return 0
 
+        # Calcula o tempo de almoço que ocorreu durante o período de trabalho
         segundos_almoco = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_almoco_inicio, periodo_almoco_fim)
+        
+        # Verifica se é feriado ou fim de semana
         brasil_holidays = holidays.Brazil(years=inicio_trabalho.year)
         is_dia_util = inicio_trabalho.weekday() < 5 and inicio_trabalho.date() not in brasil_holidays
 
+        # Calcula a duração total líquida, descontando o almoço
         duracao_total_bruta_segundos = (fim_trabalho - inicio_trabalho).total_seconds()
         duracao_total_liquida_segundos = duracao_total_bruta_segundos - segundos_almoco
 
         segundos_normais = segundos_extra_50 = segundos_extra_100 = 0
-        if is_dia_util:
+        if is_dia_util: # Se for dia útil, calcula horas normais e extras 50%
             segundos_normais_brutos = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_normal_inicio, periodo_normal_fim)
             segundos_normais = segundos_normais_brutos - segundos_almoco
             segundos_extra_50 = duracao_total_liquida_segundos - segundos_normais
@@ -247,21 +242,11 @@ if st.session_state["authentication_status"]:
         horas_extra_50 = segundos_extra_50 / 3600
         horas_extra_100 = segundos_extra_100 / 3600
 
-        # --- LÓGICA DE CÁLCULO E PRESERVAÇÃO DE VALORES ---
-        qtd_tecnicos_antiga = _to_int_safe(edit_data.get('qtd_tecnicos', 1)) if is_editing_entrada and edit_data else qtd_tecnicos
-        horarios_ou_tecnicos_mudaram = horarios_mudaram or (qtd_tecnicos != qtd_tecnicos_antiga)
-
-        if is_editing_entrada and not horarios_ou_tecnicos_mudaram:
-            # Se horários e técnicos não mudaram, preserva os valores de horas já calculados.
-            valor_horas_normais = _to_float_safe(edit_data.get('horas_tecnicas', 0))
-            valor_horas_50 = _to_float_safe(edit_data.get('horas_tecnicas_50', 0))
-            valor_horas_100 = _to_float_safe(edit_data.get('horas_tecnicas_100', 0))
-        else:
-            # Se horários ou técnicos mudaram, recalcula os valores das horas.
-            valor_horas_normais = (valor_hora_input * horas_normais) * qtd_tecnicos
-            valor_horas_50 = ((valor_hora_input * 1.5) * horas_extra_50) * qtd_tecnicos
-            valor_horas_100 = ((valor_hora_input * 2.0) * horas_extra_100) * qtd_tecnicos
-
+        # Recalcula sempre os valores das horas com base nos inputs do formulário
+        valor_horas_normais = (valor_hora_input * horas_normais) * qtd_tecnicos
+        valor_horas_50 = ((valor_hora_input * 1.5) * horas_extra_50) * qtd_tecnicos
+        valor_horas_100 = ((valor_hora_input * 2.0) * horas_extra_100) * qtd_tecnicos
+        
         # Calcula o valor final do KM e o valor total do atendimento
         valor_km_final = qtd_km * VALOR_POR_KM
         valor_atendimento_calculado = (
@@ -280,23 +265,23 @@ if st.session_state["authentication_status"]:
             'patrimonio': patrimonio or "",
             'maquina': maquina or "",
             'cliente': cliente or "",
-            'valor_atendimento': float(valor_atendimento_calculado),
-            'horas_tecnicas': float(valor_horas_normais),
-            'horas_tecnicas_50': float(valor_horas_50),
-            'horas_tecnicas_100': float(valor_horas_100),
-            'km': float(valor_km_final),
-            'refeicao': float(refeicao),
-            'pecas': float(pecas_entrada),
-            'pedagio': float(pedagio),
+            'valor_atendimento': safe_number(valor_atendimento_calculado),
+            'horas_tecnicas': safe_number(valor_horas_normais),
+            'horas_tecnicas_50': safe_number(valor_horas_50),
+            'horas_tecnicas_100': safe_number(valor_horas_100),
+            'km': safe_number(valor_km_final),
+            'refeicao': safe_number(refeicao),
+            'pecas': safe_number(pecas_entrada),
+            'pedagio': safe_number(pedagio),
             'usuario_lancamento': username,
-            'qtd_tecnicos': int(qtd_tecnicos),
-            'valor_deslocamento': float(valor_deslocamento),
-            'valor_laboratorio': float(valor_laboratorio),
-            'valor_deslocamento_total': float(valor_deslocamento * qtd_tecnicos),
-            'valor_hora_tecnica_total': float(valor_hora_input * qtd_tecnicos),
-            'horas_normais': float(horas_normais),
-            'horas_extra_50': float(horas_extra_50),
-            'horas_extra_100': float(horas_extra_100)
+            'qtd_tecnicos': safe_int(qtd_tecnicos, default=1),
+            'valor_deslocamento': safe_number(valor_deslocamento),
+            'valor_laboratorio': safe_number(valor_laboratorio),
+            'valor_deslocamento_total': safe_number(valor_deslocamento) * safe_int(qtd_tecnicos, default=1),
+            'valor_hora_tecnica_total': safe_number(valor_hora_input * qtd_tecnicos),
+            'horas_normais': safe_number(horas_normais),
+            'horas_extra_50': safe_number(horas_extra_50),
+            'horas_extra_100': safe_number(horas_extra_100)
         }
 
         if is_editing_entrada:
