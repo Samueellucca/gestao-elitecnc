@@ -153,6 +153,12 @@ if st.session_state["authentication_status"]:
         pecas_default = _to_float_safe(edit_data.get('pecas')) if is_editing_entrada and edit_data else 0.0
         cliente_default = edit_data.get('cliente', "") if is_editing_entrada and edit_data else ""
         qtd_tecnicos_default = _to_int_safe(edit_data.get('qtd_tecnicos')) if is_editing_entrada and edit_data else 1
+        
+        # --- CORREÇÃO: Carregar valores calculados para edição ---
+        # O valor de KM é armazenado como o valor final (R$), então precisamos fazer o cálculo inverso para obter a quantidade.
+        km_valor_default = _to_float_safe(edit_data.get('km')) if is_editing_entrada and edit_data else 0.0
+        qtd_km_default = km_valor_default / VALOR_POR_KM if VALOR_POR_KM > 0 else 0.0
+
         valor_deslocamento_default = _to_float_safe(edit_data.get('valor_deslocamento')) if is_editing_entrada and edit_data else 0.0
         valor_laboratorio_default = _to_float_safe(edit_data.get('valor_laboratorio')) if is_editing_entrada and edit_data else 0.0
 
@@ -182,7 +188,7 @@ if st.session_state["authentication_status"]:
         valor_hora_input = st.number_input("Valor da Hora Técnica (R$)", min_value=0.0, format="%.2f", value=VALOR_HORA_TECNICA)
         valor_deslocamento = st.number_input("Valor Deslocamento do Técnico (R$)", min_value=0.0, step=1.0, value=valor_deslocamento_default)
         valor_laboratorio = st.number_input("Valor Laboratório (R$)", min_value=0.0, step=1.0, value=valor_laboratorio_default)
-        qtd_km = st.number_input(f"Qtd KM Rodados (R$ {VALOR_POR_KM:.2f}/km)", min_value=0.0, format="%.2f")
+        qtd_km = st.number_input(f"Qtd KM Rodados (R$ {VALOR_POR_KM:.2f}/km)", min_value=0.0, format="%.2f", value=qtd_km_default)
         refeicao = st.number_input("Valor da Refeição",min_value=0.0, step=1.0, value=refeicao_default)
         pecas_entrada = st.number_input("Valor das Peças (Venda)", min_value=0.0, step=1.0, value=pecas_default)
         pedagio = st.number_input("Valor do Pedágio", min_value=0.0, step=1.0, value=pedagio_default)
