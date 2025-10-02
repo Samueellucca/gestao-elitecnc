@@ -207,7 +207,8 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
             "Deslocamento (KM)": os_details.get('km', 0),
             "Refeição": os_details.get('refeicao', 0),
             "Peças": os_details.get('pecas', 0),
-            "Pedágio": os_details.get('pedagio', 0)
+            "Pedágio": os_details.get('pedagio', 0),
+            "Valor Laboratório": os_details.get('valor_laboratorio', 0)
         }
         for descricao, valor in valores.items():
             if isinstance(valor, (int, float)) and valor > 0:

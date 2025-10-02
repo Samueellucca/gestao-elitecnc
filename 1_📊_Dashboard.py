@@ -150,6 +150,7 @@ if st.session_state["authentication_status"]:
         cliente_default = edit_data.get('cliente', "") if is_editing_entrada and edit_data else ""
         qtd_tecnicos_default = _to_int_safe(edit_data.get('qtd_tecnicos')) if is_editing_entrada and edit_data else 1
         valor_deslocamento_default = _to_float_safe(edit_data.get('valor_deslocamento')) if is_editing_entrada and edit_data else 0.0
+        valor_laboratorio_default = _to_float_safe(edit_data.get('valor_laboratorio')) if is_editing_entrada and edit_data else 0.0
 
         # --- CAMPOS DO FORMULÁRIO ---
         data_atendimento = st.date_input("Data do Atendimento", value=data_default)
@@ -176,6 +177,7 @@ if st.session_state["authentication_status"]:
         st.write("Valores e Quantidades:")
         valor_hora_input = st.number_input("Valor da Hora Técnica (R$)", min_value=0.0, format="%.2f", value=VALOR_HORA_TECNICA)
         valor_deslocamento = st.number_input("Valor Deslocamento do Técnico (R$)", min_value=0.0, step=1.0, value=valor_deslocamento_default)
+        valor_laboratorio = st.number_input("Valor Laboratório (R$)", min_value=0.0, step=1.0, value=valor_laboratorio_default)
         qtd_km = st.number_input(f"Qtd KM Rodados (R$ {VALOR_POR_KM:.2f}/km)", min_value=0.0, format="%.2f")
         refeicao = st.number_input("Valor da Refeição",min_value=0.0, step=1.0, value=refeicao_default)
         pecas_entrada = st.number_input("Valor das Peças (Venda)", min_value=0.0, step=1.0, value=pecas_default)
@@ -233,7 +235,8 @@ if st.session_state["authentication_status"]:
             refeicao +
             pecas_entrada +
             pedagio +
-            (valor_deslocamento * qtd_tecnicos)
+            (valor_deslocamento * qtd_tecnicos) +
+            valor_laboratorio
         )
 
         # --- MONTAR DICIONÁRIO DE LANÇAMENTO ---
@@ -257,6 +260,7 @@ if st.session_state["authentication_status"]:
             'usuario_lancamento': username,
             'qtd_tecnicos': int(qtd_tecnicos),
             'valor_deslocamento': float(valor_deslocamento),
+            'valor_laboratorio': float(valor_laboratorio),
             'valor_deslocamento_total': float(valor_deslocamento * qtd_tecnicos),
             'valor_hora_tecnica_total': float(valor_hora_input * qtd_tecnicos),
             'horas_normais': float(horas_normais),
@@ -423,7 +427,7 @@ if st.session_state["authentication_status"]:
     with col2:
         st.subheader("Composição das Entradas")
         if not entradas_filtradas.empty:
-            plot_df_cols = ['horas_tecnicas', 'horas_tecnicas_50', 'horas_tecnicas_100', 'km', 'refeicao', 'pecas', 'pedagio']
+            plot_df_cols = ['horas_tecnicas', 'horas_tecnicas_50', 'horas_tecnicas_100', 'km', 'refeicao', 'pecas', 'pedagio', 'valor_laboratorio']
             existing_cols = [col for col in plot_df_cols if col in entradas_filtradas.columns]
             
             if existing_cols:
@@ -483,6 +487,7 @@ if st.session_state["authentication_status"]:
         "refeicao": st.column_config.NumberColumn("Refeição (R$)", format="R$ %.2f"),
         "pecas": st.column_config.NumberColumn("Peças (R$)", format="R$ %.2f"),
         "pedagio": st.column_config.NumberColumn("Pedágio (R$)", format="R$ %.2f"),
+        "valor_laboratorio": st.column_config.NumberColumn("Laboratório (R$)", format="R$ %.2f"),
         "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
         "data": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY - HH:mm"),
         "descricao_servico": "Descrição do Serviço",
