@@ -80,6 +80,10 @@ if st.session_state["authentication_status"]:
 
     def atualizar_lancamento(tabela, id, dados):
         with engine.connect() as con:
+            # --- FILTRAR APENAS COLUNAS EXISTENTES NO BANCO ---
+            colunas_existentes = pd.read_sql(f"SELECT * FROM {tabela} LIMIT 1", engine).columns
+            dados = {k: v for k, v in dados.items() if k in colunas_existentes}
+
             set_clause = ", ".join([f"\"{key}\" = :{key}" for key in dados.keys()])
             dados['id'] = id
             con.execute(text(f"UPDATE {tabela} SET {set_clause} WHERE id = :id"), dados)
