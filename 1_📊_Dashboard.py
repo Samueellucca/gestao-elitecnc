@@ -247,41 +247,28 @@ if st.session_state["authentication_status"]:
         horas_extra_50 = segundos_extra_50 / 3600
         horas_extra_100 = segundos_extra_100 / 3600
 
-        valor_km_final = qtd_km * VALOR_POR_KM
+        # --- LÓGICA DE CÁLCULO E PRESERVAÇÃO DE VALORES ---
+        qtd_tecnicos_antiga = _to_int_safe(edit_data.get('qtd_tecnicos', 1)) if is_editing_entrada and edit_data else qtd_tecnicos
+        horarios_ou_tecnicos_mudaram = horarios_mudaram or (qtd_tecnicos != qtd_tecnicos_antiga)
 
-        # --- LÓGICA DE PRESERVAÇÃO DE VALOR ---
-        # Verifica se algum campo que impacta o valor foi alterado.
-        valor_foi_alterado = True # Assume que mudou por padrão
-        if is_editing_entrada and edit_data:
-            campos_iguais = all([
-                horarios_mudaram is False,
-                abs(_to_float_safe(edit_data.get('km', 0)) - valor_km_final) < 0.01,
-                abs(_to_float_safe(edit_data.get('refeicao', 0)) - refeicao) < 0.01,
-                abs(_to_float_safe(edit_data.get('pecas', 0)) - pecas_entrada) < 0.01,
-                abs(_to_float_safe(edit_data.get('pedagio', 0)) - pedagio) < 0.01,
-                abs(_to_float_safe(edit_data.get('valor_deslocamento', 0)) - valor_deslocamento) < 0.01,
-                abs(_to_float_safe(edit_data.get('valor_laboratorio', 0)) - valor_laboratorio) < 0.01,
-                _to_int_safe(edit_data.get('qtd_tecnicos', 1)) == qtd_tecnicos
-            ])
-            if campos_iguais:
-                valor_foi_alterado = False
-
-        if not valor_foi_alterado:
-            # Se nada mudou, preserva o valor total e os valores de horas originais.
-            valor_atendimento_calculado = _to_float_safe(edit_data.get('valor_atendimento', 0))
+        if is_editing_entrada and not horarios_ou_tecnicos_mudaram:
+            # Se horários e técnicos não mudaram, preserva os valores de horas já calculados.
             valor_horas_normais = _to_float_safe(edit_data.get('horas_tecnicas', 0))
             valor_horas_50 = _to_float_safe(edit_data.get('horas_tecnicas_50', 0))
             valor_horas_100 = _to_float_safe(edit_data.get('horas_tecnicas_100', 0))
         else:
-            # Se algo mudou, recalcula tudo.
+            # Se horários ou técnicos mudaram, recalcula os valores das horas.
             valor_horas_normais = (valor_hora_input * horas_normais) * qtd_tecnicos
             valor_horas_50 = ((valor_hora_input * 1.5) * horas_extra_50) * qtd_tecnicos
             valor_horas_100 = ((valor_hora_input * 2.0) * horas_extra_100) * qtd_tecnicos
-            valor_atendimento_calculado = (
-                valor_horas_normais + valor_horas_50 + valor_horas_100 +
-                valor_km_final + refeicao + pecas_entrada + pedagio +
-                (valor_deslocamento * qtd_tecnicos) + valor_laboratorio
-            )
+
+        # Calcula o valor final do KM e o valor total do atendimento
+        valor_km_final = qtd_km * VALOR_POR_KM
+        valor_atendimento_calculado = (
+            valor_horas_normais + valor_horas_50 + valor_horas_100 +
+            valor_km_final + refeicao + pecas_entrada + pedagio +
+            (valor_deslocamento * qtd_tecnicos) + valor_laboratorio
+        )
 
         # --- MONTAR DICIONÁRIO DE LANÇAMENTO ---
         dados_lancamento = {
