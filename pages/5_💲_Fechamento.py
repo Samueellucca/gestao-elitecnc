@@ -245,7 +245,20 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
 
 Segue em anexo o relatório de fechamento dos serviços prestados entre {data_inicio.strftime('%d/%m/%Y')} e {data_fim.strftime('%d/%m/%Y')}, totalizando {f'R$ {total_a_pagar:,.2f}'.replace('.',',')}.
 
-Qualquer dúvida, estamos à disposição.
+A partir deste comunicado, o prazo para pagamento das faturas será de 30 (trinta) dias. Solicitamos a gentileza de considerar este prazo para a quitação do valor referente ao fechamento em anexo.
+
+Nova Estrutura de Faturamento e Relatórios
+Informamos que estamos em processo de reestruturação do nosso departamento financeiro. O objetivo é otimizar o envio de informações e a gestão dos pagamentos.
+
+Com isso, a rotina de envio de relatórios passará a ser a seguinte:
+
+1. Relatórios Diários: Todos os relatórios de serviço serão enviados no dia subsequente à prestação do serviço.
+
+2. Fechamento Consolidado: Uma fatura consolidada será enviada a cada 15 (quinze) dias, reunindo todos os serviços realizados no período.
+
+Agradecemos a sua compreensão e parceria. Esta mudança visa proporcionar maior transparência e controle sobre os serviços prestados.
+
+Qualquer dúvida ou necessidade de esclarecimento, estamos à disposição.
 
 Atenciosamente,
 
