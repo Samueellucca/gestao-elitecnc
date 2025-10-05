@@ -18,9 +18,9 @@ elif st.session_state["authentication_status"] is None:
     st.stop()
 
 # Se chegou aqui, está logado:
-authenticator = None  # só para manter compatibilidade se precisar do logout
+st.sidebar.image("logo.png", width=150)
 st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authentication_status": None}))
-    
+
 # --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
 st.set_page_config(page_title="Cadastro de Clientes", page_icon="⭐", layout="wide")
 st.title("⭐ Cadastro de Clientes")

@@ -54,10 +54,24 @@ try:
                 hora_fim TEXT
             );"""))
 
+            connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS configuracoes (
+                id SERIAL PRIMARY KEY,
+                chave VARCHAR(255) UNIQUE NOT NULL,
+                valor TEXT,
+                descricao TEXT
+            );"""))
+
             # --- Garantir colunas adicionais em entradas ---
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_deslocamento NUMERIC(10, 2);"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS qtd_tecnicos INTEGER;"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_laboratorio NUMERIC(10, 2);"))
+
+            # --- Inserir valores padrão na tabela de configurações se não existirem ---
+            connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('valor_por_km', '2.30', 'Valor cobrado por KM rodado.') ON CONFLICT (chave) DO NOTHING;"))
+            connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('valor_hora_tecnica', '90.00', 'Valor padrão da hora técnica.') ON CONFLICT (chave) DO NOTHING;"))
+            connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('empresa_razao_social', 'Elite CNC Service', 'Razão Social ou Nome da Empresa para PDFs.') ON CONFLICT (chave) DO NOTHING;"))
+            connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('empresa_cnpj', 'CNPJ: 61.159.425/0001-32', 'CNPJ da empresa para PDFs.') ON CONFLICT (chave) DO NOTHING;"))
 
             # --- Ativar RLS e criar políticas ---
             tabelas = ["clientes", "saidas", "entradas"]
