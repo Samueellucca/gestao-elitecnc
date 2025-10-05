@@ -9,3 +9,4 @@ fpdf2
 holidays
 openpyxl
 psycopg2-binary
+pypdf
