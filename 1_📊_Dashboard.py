@@ -161,12 +161,12 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
         # --- FORMULÁRIO DE ENTRADAS ---
         with col_form1:
             is_editing_entrada = st.session_state.edit_id is not None and st.session_state.edit_table == 'entradas'
-            with st.form("form_entradas", clear_on_submit=False):
+            with st.form("form_entradas", clear_on_submit=True):
                 st.subheader("➕ Nova Entrada (O.S.)" if not is_editing_entrada else "📝 Editando Entrada")
 
                 # --- LÓGICA DE VALORES PADRÃO ---
                 data_default = datetime.now().date()
-                hora_inicio_default = time(8, 0)
+                hora_inicio_default = time(8, 0) # type: ignore
                 hora_fim_default = time(17, 0)
 
                 if is_editing_entrada and edit_data:
@@ -298,7 +298,7 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
         # --- FORMULÁRIO DE SAÍDAS E GERENCIAMENTO ---
         with col_form2:
             is_editing_saida = st.session_state.edit_id is not None and st.session_state.edit_table == 'saidas'
-            with st.form("form_saidas", clear_on_submit=False):
+            with st.form("form_saidas", clear_on_submit=True):
                 st.subheader("➖ Nova Saída" if not is_editing_saida else "📝 Editando Saída")
                 
                 if is_editing_saida and edit_data and pd.notnull(edit_data.get('data')):
