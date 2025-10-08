@@ -1,11 +1,24 @@
-# generate_keys.py
-import streamlit_authenticator as stauth
+# generate_key.py
+import bcrypt
+import getpass
 
-# Coloque a(s) senha(s) que você quer criptografar dentro da lista
-passwords_to_hash = ["Elitecnc@2025"]
+print("Este script gera um hash de senha compatível com o sistema.")
+print("Digite a senha que deseja criptografar. Ela não aparecerá na tela.")
+print("Pressione Enter sem digitar nada para sair.")
+print("-" * 30)
 
-# Gera o hash das senhas
-hashed_passwords = stauth.Hasher(passwords_to_hash).generate()
+while True:
+    # Pede a senha de forma segura, sem exibir na tela
+    password = getpass.getpass("Digite a senha para gerar o hash (ou Enter para sair): ")
 
-# Imprime o resultado no terminal
-print(hashed_passwords)
+    if not password:
+        print("Saindo do script.")
+        break
+
+    # Codifica a senha para bytes e gera o salt e o hash
+    hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    # Decodifica o resultado para string para poder ser salvo no YAML
+    hashed_password_str = hashed_pw.decode('utf-8')
+
+    print("\nSenha criptografada (hash):")
+    print(f"['{hashed_password_str}']\n")

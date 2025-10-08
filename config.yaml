@@ -4,18 +4,18 @@ credentials:
     samuel:
       email: samukatas@gmail.com
       name: Samuel
-      password: 'Elitecnc@2025'
+      password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
 
     # Novos usuários com a mesma senha master
     rafael:
       email: rafael.elitecncservice@gmail.com
       name: Rafael
-      password: 'Elitecnc@2025'
+      password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
 
     filipe:
       email: filipe.guimaraes@icloud.com
       name: Filipe
-      password: 'Elitecnc@2025'
+      password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
             
 cookie:
   expiry_days: 30
