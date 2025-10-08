@@ -66,6 +66,7 @@ try:
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_deslocamento NUMERIC(10, 2);"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS qtd_tecnicos INTEGER;"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_laboratorio NUMERIC(10, 2);"))
+            connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente';"))
 
             # --- Inserir valores padrão na tabela de configurações se não existirem ---
             connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('valor_por_km', '2.30', 'Valor cobrado por KM rodado.') ON CONFLICT (chave) DO NOTHING;"))

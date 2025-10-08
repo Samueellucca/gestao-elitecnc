@@ -101,6 +101,7 @@ def carregar_clientes_e_dados():
 
 def buscar_servicos_cliente(cliente, data_inicio, data_fim):
     try:
+        # Query original para buscar todos os serviços
         query = f"""
         SELECT data, ordem_servico, maquina, patrimonio, valor_atendimento
         FROM entradas
@@ -134,7 +135,7 @@ else:
         else:
             servicos_df = buscar_servicos_cliente(cliente_selecionado, data_inicio, data_fim)
             if servicos_df.empty:
-                st.warning(f"Nenhum serviço encontrado para '{cliente_selecionado}' no período.")
+                st.warning(f"Nenhum serviço encontrado para '{cliente_selecionado}' no período selecionado.")
             else:
                 st.session_state.servicos_df = servicos_df
                 st.session_state.cliente_selecionado = cliente_selecionado
@@ -203,27 +204,27 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
 
     pdf.set_font('DejaVu', 'B', 10)
     pdf.cell(25, 7, 'Data', 1, 0, 'C')
-    pdf.cell(25, 7, 'Nº O.S.', 1, 0, 'C')
-    pdf.cell(70, 7, 'Máquina', 1, 0, 'C')
+    pdf.cell(30, 7, 'Nº O.S.', 1, 0, 'C')
+    pdf.cell(65, 7, 'Máquina', 1, 0, 'C')
     pdf.cell(30, 7, 'Patrimônio', 1, 0, 'C')
     pdf.cell(40, 7, 'Valor Total', 1, 1, 'C')
 
     pdf.set_font('DejaVu', '', 10)
     for _, row in servicos_df.iterrows():
         pdf.cell(25, 7, row['data'].strftime('%d/%m/%Y'), 1, 0, 'C')
-        pdf.cell(25, 7, str(row['ordem_servico']), 1, 0, 'C')
-
+        pdf.cell(30, 7, str(row['ordem_servico']), 1, 0, 'C')
+        
         # MultiCell para máquina
         x_atual = pdf.get_x()
         y_atual = pdf.get_y()
-        pdf.multi_cell(70, 7, str(row['maquina']), 1, 'L')
-        pdf.set_xy(x_atual + 70, y_atual)
+        pdf.multi_cell(65, 7, str(row['maquina']), 1, 'L')
+        pdf.set_xy(x_atual + 65, y_atual)
 
         pdf.cell(30, 7, str(row.get('patrimonio', '')), 1, 0, 'C')
         pdf.cell(40, 7, f"R$ {row['valor_atendimento']:.2f}".replace('.',','), 1, 1, 'R')
 
     pdf.set_font('DejaVu', 'B', 11)
-    pdf.cell(150, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R')
+    pdf.cell(150, 8, 'VALOR TOTAL A PAGAR', 1, 0, 'R') # Ajustado para 150 (25+30+65+30)
     pdf.cell(40, 8, f"R$ {total_a_pagar:.2f}".replace('.',','), 1, 1, 'R')
 
     pdf_bytes = bytes(pdf.output())

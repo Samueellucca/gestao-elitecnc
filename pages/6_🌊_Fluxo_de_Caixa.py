@@ -29,7 +29,7 @@ def main():
     @st.cache_data
     def carregar_transacoes():
         try:
-            entradas_df = pd.read_sql_query("SELECT data, descricao_servico as descricao, valor_atendimento as valor FROM entradas", engine, parse_dates=['data'])
+            entradas_df = pd.read_sql_query("SELECT data, descricao_servico as descricao, valor_atendimento as valor FROM entradas WHERE status = 'Pago' OR status IS NULL", engine, parse_dates=['data'])
             saidas_df = pd.read_sql_query("SELECT data, descricao, valor FROM saidas", engine, parse_dates=['data'])
             
             entradas_df['tipo'] = 'Entrada'

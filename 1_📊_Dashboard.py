@@ -199,6 +199,7 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 valor_deslocamento_default = safe_number(edit_data.get('valor_deslocamento')) if is_editing_entrada and edit_data else 0.0
                 valor_laboratorio_default = safe_number(edit_data.get('valor_laboratorio')) if is_editing_entrada and edit_data else 0.0
 
+                status_default = edit_data.get('status', "Pendente") if is_editing_entrada and edit_data else "Pendente"
                 # --- CAMPOS DO FORMULÁRIO ---
                 data_atendimento = st.date_input("Data do Atendimento", value=data_default)
                 os_id = st.text_input("Nº da O.S.", value=os_id_default)
@@ -208,6 +209,9 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 
                 cliente_index = clientes_cadastrados.index(cliente_default) if cliente_default in clientes_cadastrados else 0
                 cliente = st.selectbox("Cliente", options=clientes_cadastrados, index=cliente_index)
+
+                status_options = ["Pendente", "Pago", "Cancelado"]
+                status = st.selectbox("Status do Lançamento", options=status_options, index=status_options.index(status_default))
 
                 st.markdown("---")
                 st.write("Cálculo de Horas")
@@ -277,7 +281,7 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                     'valor_atendimento': safe_number(valor_atendimento_calculado), 'horas_tecnicas': safe_number(valor_horas_normais), 'horas_tecnicas_50': safe_number(valor_horas_50),
                     'horas_tecnicas_100': safe_number(valor_horas_100), 'km': safe_number(valor_km_final), 'refeicao': safe_number(refeicao), 'pecas': safe_number(pecas_entrada),
                     'pedagio': safe_number(pedagio), 'usuario_lancamento': username, 'qtd_tecnicos': safe_int(qtd_tecnicos, default=1), 'valor_deslocamento': safe_number(valor_deslocamento),
-                    'valor_laboratorio': safe_number(valor_laboratorio), 'valor_deslocamento_total': safe_number(valor_deslocamento) * safe_int(qtd_tecnicos, default=1),
+                    'valor_laboratorio': safe_number(valor_laboratorio), 'status': status, 'valor_deslocamento_total': safe_number(valor_deslocamento) * safe_int(qtd_tecnicos, default=1),
                     'valor_hora_tecnica_total': safe_number(valor_hora_input * qtd_tecnicos), 'horas_normais': safe_number(horas_normais), 'horas_extra_50': safe_number(horas_extra_50),
                     'horas_extra_100': safe_number(horas_extra_100)
                 }
@@ -381,27 +385,36 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 min_date, max_date = min(all_dates), max(all_dates)
                 
                 st.subheader("Filtros do Dashboard")
-                col_filter1, col_filter2 = st.columns([2,3])
+                col_filter1, col_filter2, col_filter3 = st.columns(3)
                 with col_filter1:
                     date_range = st.date_input("Filtre por período:", [min_date, max_date], min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
                 
                 if len(date_range) == 2:
-                    start_date, end_date = date_range
-                elif len(date_range) == 1:
-                    start_date, end_date = date_range[0], date_range[0]
+                    start_date, end_date = date_range[0], date_range[1]
 
                 if start_date and end_date:
+                    # Verifica se a coluna 'status' existe antes de usá-la
+                    if 'status' in entradas_df.columns:
+                        status_disponiveis = sorted(entradas_df['status'].dropna().unique().tolist())
+                        with col_filter2:
+                            status_filtro = st.multiselect("Filtrar por status:", options=status_disponiveis, default=status_disponiveis)
+                    else:
+                        status_filtro = [] # Define como lista vazia se a coluna não existir
+
+                    clientes_disponiveis = sorted(entradas_df['cliente'].dropna().unique().tolist())
+                    with col_filter3:
+                        cliente_filtro = st.selectbox("Filtrar por cliente:", options=["Todos"] + clientes_disponiveis)
+
                     start_date_dt = pd.to_datetime(start_date)
                     end_date_dt = pd.to_datetime(end_date).replace(hour=23, minute=59, second=59)
                     
                     entradas_filtradas = entradas_df[(entradas_df['data'] >= start_date_dt) & (entradas_df['data'] <= end_date_dt)]
                     saidas_filtradas = saidas_df[(saidas_df['data'] >= start_date_dt) & (saidas_df['data'] <= end_date_dt)]
 
-                    clientes_disponiveis = sorted(entradas_filtradas['cliente'].dropna().unique().tolist())
-                    with col_filter2:
-                        cliente_filtro = st.selectbox("Filtrar por cliente:", options=["Todos"] + clientes_disponiveis)
                     if cliente_filtro != "Todos":
                         entradas_filtradas = entradas_filtradas[entradas_filtradas['cliente'] == cliente_filtro]
+                    if status_filtro and 'status' in entradas_filtradas.columns:
+                        entradas_filtradas = entradas_filtradas[entradas_filtradas['status'].isin(status_filtro)]
         else:
             st.warning("Nenhum dado lançado ainda.")
 
@@ -487,7 +500,7 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
             "pedagio": st.column_config.NumberColumn("Pedágio (R$)", format="R$ %.2f"),
             "valor_laboratorio": st.column_config.NumberColumn("Laboratório (R$)", format="R$ %.2f"),
             "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
-            "data": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY - HH:mm"),
+            "data": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY - HH:mm"), "status": "Status",
             "descricao_servico": "Descrição do Serviço", "ordem_servico": "Nº O.S.", "cliente": "Cliente",
             "patrimonio": "Patrimônio", "maquina": "Máquina", "hora_inicio": "Início", "hora_fim": "Fim"
         }
