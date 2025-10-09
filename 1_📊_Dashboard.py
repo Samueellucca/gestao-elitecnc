@@ -122,14 +122,14 @@ elif st.session_state["authentication_status"] is False:
     # --- TELA DE LOGIN (SENHA INCORRETA) ---
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        st.image("logo.png", use_column_width=True)
+        st.image("logo.png", use_container_width=True)
     st.error('Usuário/senha incorreto')
 
 elif st.session_state["authentication_status"] is None:
     # --- TELA DE LOGIN (INICIAL) ---
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        st.image("logo.png", use_column_width=True)
+        st.image("logo.png", use_container_width=True)
     st.warning('Por favor, insira seu usuário e senha para acessar.')
 
 
