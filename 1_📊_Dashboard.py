@@ -406,6 +406,11 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 min_date, max_date = min(all_dates), max(all_dates)
                 
                 st.subheader("Filtros do Dashboard")
+                st.info(
+                    "Os dados exibidos no dashboard são filtrados pelo período, status e cliente selecionados. "
+                    "Certifique-se de que o status 'Pendente' esteja selecionado no filtro de status para visualizar lançamentos de laboratório não pagos.",
+                    icon="ℹ️"
+                )
                 col_filter1, col_filter2, col_filter3 = st.columns(3)
                 with col_filter1:
                     date_range = st.date_input("Filtre por período:", [min_date, max_date], min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
