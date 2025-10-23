@@ -29,14 +29,21 @@ def main():
     @st.cache_data
     def carregar_transacoes():
         try:
-            entradas_df = pd.read_sql_query("SELECT data, descricao_servico as descricao, valor_atendimento as valor FROM entradas WHERE status = 'Pago' OR status IS NULL", engine, parse_dates=['data'])
-            saidas_df = pd.read_sql_query("SELECT data, descricao, valor FROM saidas", engine, parse_dates=['data'])
+            # Para entradas, usamos a data_pagamento se o status for 'Pago'
+            query_entradas = "SELECT data_pagamento as data, descricao_servico as descricao, valor_atendimento as valor FROM entradas WHERE status = 'Pago' AND data_pagamento IS NOT NULL"
+            entradas_df = pd.read_sql_query(query_entradas, engine, parse_dates=['data'])
+            
+            # Para saídas, a mesma lógica
+            query_saidas = "SELECT data_pagamento as data, descricao, valor FROM saidas WHERE status = 'Pago' AND data_pagamento IS NOT NULL"
+            saidas_df = pd.read_sql_query(query_saidas, engine, parse_dates=['data'])
             
             entradas_df['tipo'] = 'Entrada'
             saidas_df['tipo'] = 'Saída'
             saidas_df['valor'] = saidas_df['valor'] * -1
             
             transacoes_df = pd.concat([entradas_df, saidas_df], ignore_index=True)
+            # Remove linhas onde a data é nula (pode acontecer se houver dados inconsistentes)
+            transacoes_df.dropna(subset=['data'], inplace=True)
             transacoes_df.sort_values(by='data', inplace=True)
             return transacoes_df
             

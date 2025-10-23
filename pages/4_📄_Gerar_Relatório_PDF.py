@@ -7,6 +7,8 @@ from sqlalchemy import create_engine
 from fpdf import FPDF
 from datetime import datetime
 import smtplib
+import re
+from urllib.parse import quote
 from email.message import EmailMessage
 
 # --- VERIFICAÇÃO DE LOGIN ---
@@ -223,31 +225,55 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         nome_arquivo = f"Relatorio_OS_{os_details.get('ordem_servico', 'N_A')}.pdf"
         
         st.subheader("Ações do Relatório")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.download_button(
-                label="📥 Baixar PDF",
-                data=pdf_bytes,
-                file_name=nome_arquivo,
-                mime="application/pdf",
-                use_container_width=True
-            )
+        st.download_button(
+            label="📥 Baixar PDF",
+            data=pdf_bytes,
+            file_name=nome_arquivo,
+            mime="application/pdf",
+            use_container_width=True
+        )
+
+        # Mensagem padrão para envio
+        mensagem_envio = f"Prezado(a) {os_details.get('cliente')},\n\nSegue em anexo o relatório de serviço referente à O.S. nº {os_details.get('ordem_servico')}.\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nFilipe Guimarães"
+
+        col_acao1, col_acao2 = st.columns(2)
+
+        # --- Enviar via WhatsApp ---
+        with col_acao1:
+            if telefone_cliente and pd.notnull(telefone_cliente):
+                numero_limpo = re.sub(r'\D', '', str(telefone_cliente))
+                if not numero_limpo.startswith('55'):
+                    numero_limpo = '55' + numero_limpo
+                
+                # Mensagem para WhatsApp não inclui o anexo, apenas notifica.
+                mensagem_whatsapp = f"Olá {os_details.get('cliente')}, tudo bem?\n\nEstou enviando o relatório de serviço da O.S. nº {os_details.get('ordem_servico')} para o seu e-mail.\n\nPor favor, verifique sua caixa de entrada.\n\nQualquer dúvida, estou à disposição."
+                mensagem_url = quote(mensagem_whatsapp)
+                link_whatsapp = f"https://wa.me/{numero_limpo}?text={mensagem_url}"
+                # Usar st.markdown para um link mais robusto
+                st.markdown(
+                    f'<a href="{link_whatsapp}" target="_blank" style="display: inline-block; text-align: center; width: 100%; padding: 0.25rem 0.75rem; background-color: #fafafa; color: #262730; border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; text-decoration: none;">📲 Enviar via WhatsApp</a>',
+                    unsafe_allow_html=True
+                )
+
+            else:
+                st.button("📲 Enviar via WhatsApp", use_container_width=True, disabled=True)
+                st.caption("Cliente sem telefone.")
             
-        with col2:
+        # --- Enviar por Email ---
+        with col_acao2:
             if email_cliente and pd.notnull(email_cliente):
                 if st.button("✉️ Enviar por Email", use_container_width=True, type="primary"):
                     with st.spinner(f"Enviando para {email_cliente}..."):
-                        corpo_email = f"Prezado(a) {os_details.get('cliente')},\n\nSegue em anexo o relatório de serviço referente à O.S. nº {os_details.get('ordem_servico')}.\n\nAtenciosamente,"
                         enviar_pdf_por_email(
                             destinatario=email_cliente,
                             assunto=f"Relatório de Serviço - O.S. {os_details.get('ordem_servico')}",
-                            corpo=corpo_email,
+                            corpo=mensagem_envio,
                             dados_pdf=pdf_bytes,
                             nome_arquivo_pdf=nome_arquivo
                         )
             else:
                 st.button("✉️ Enviar por Email", use_container_width=True, disabled=True)
                 st.caption("Cliente sem email cadastrado.")
+
 else:
     st.info("Nenhuma Ordem de Serviço válida foi encontrada para gerar relatórios.")

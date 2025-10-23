@@ -29,7 +29,8 @@ try:
                 tipo_conta VARCHAR(255),
                 descricao TEXT,
                 valor NUMERIC(10, 2),
-                usuario_lancamento VARCHAR(255)
+                usuario_lancamento VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'Pendente'
             );"""))
 
             connection.execute(text("""
@@ -62,10 +63,34 @@ try:
                 descricao TEXT
             );"""))
 
+            connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS estoque_componentes (
+                id SERIAL PRIMARY KEY,
+                nome VARCHAR(255) UNIQUE NOT NULL,
+                categoria VARCHAR(255),
+                estoque_minimo INTEGER DEFAULT 0,
+                qtd_laboratorio INTEGER DEFAULT 0,
+                qtd_assistencia INTEGER DEFAULT 0
+            );"""))
+
+            connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS estoque_movimentacao (
+                id SERIAL PRIMARY KEY,
+                componente_id INTEGER REFERENCES estoque_componentes(id) ON DELETE CASCADE,
+                data TIMESTAMP NOT NULL,
+                tipo_movimento VARCHAR(50), -- 'Entrada' ou 'Saída'
+                local VARCHAR(100), -- 'Laboratório' ou 'Assistência Técnica'
+                quantidade INTEGER,
+                observacao TEXT,
+                usuario_lancamento VARCHAR(255)
+            );"""))
+
             # --- Garantir colunas adicionais em entradas ---
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_deslocamento NUMERIC(10, 2);"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS qtd_tecnicos INTEGER;"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_laboratorio NUMERIC(10, 2);"))
+            connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS data_pagamento TIMESTAMP;"))
+            connection.execute(text("ALTER TABLE saidas ADD COLUMN IF NOT EXISTS data_pagamento TIMESTAMP;"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente';"))
 
             # --- Inserir valores padrão na tabela de configurações se não existirem ---
@@ -75,7 +100,7 @@ try:
             connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('empresa_cnpj', 'CNPJ: 61.159.425/0001-32', 'CNPJ da empresa para PDFs.') ON CONFLICT (chave) DO NOTHING;"))
 
             # --- Ativar RLS e criar políticas ---
-            tabelas = ["clientes", "saidas", "entradas"]
+            tabelas = ["clientes", "saidas", "entradas", "estoque_componentes", "estoque_movimentacao"]
             for tabela in tabelas:
                 connection.execute(text(f"ALTER TABLE {tabela} ENABLE ROW LEVEL SECURITY;"))
 
@@ -120,6 +145,7 @@ try:
 
     if __name__ == "__main__":
         create_or_update_tables()
+        print("\nLembre-se de executar este script para aplicar as alterações no banco de dados!")
 
 except Exception as e:
     print(f"❌ Erro: {e}")

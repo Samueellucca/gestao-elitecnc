@@ -16,6 +16,11 @@ credentials:
       email: filipe.guimaraes@icloud.com
       name: Filipe
       password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
+
+    Patrick:
+      email: laboratorioelitecnc@hotmail.com
+      name: Patrick
+      password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
             
 cookie:
   expiry_days: 30

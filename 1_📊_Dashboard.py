@@ -224,6 +224,14 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 with col_hora2:
                     hora_fim = st.time_input("Hora de Fim", value=hora_fim_default, step=timedelta(minutes=15))
 
+                st.write("Intervalo (Almoço/Janta) - Opcional")
+                col_almoco1, col_almoco2 = st.columns(2)
+                with col_almoco1:
+                    # Usamos None como padrão para indicar que não há intervalo
+                    hora_almoco_inicio = st.time_input("Início do Intervalo", value=None, step=timedelta(minutes=15))
+                with col_almoco2:
+                    hora_almoco_fim = st.time_input("Fim do Intervalo", value=None, step=timedelta(minutes=15))
+
                 st.markdown("---")
                 st.write("Valores e Quantidades:")
                 valor_hora_input = st.number_input("Valor da Hora Técnica (R$)", min_value=0.0, format="%.2f", value=VALOR_HORA_TECNICA)
@@ -242,10 +250,12 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 if fim_trabalho <= inicio_trabalho:
                     fim_trabalho += timedelta(days=1)
 
+                # REMOVIDO: Cálculo automático de almoço
+                # periodo_almoco_inicio = datetime.combine(inicio_trabalho.date(), time(12, 0))
+                # periodo_almoco_fim = datetime.combine(inicio_trabalho.date(), time(13, 0))
+
                 periodo_normal_inicio = datetime.combine(inicio_trabalho.date(), time(7, 0))
                 periodo_normal_fim = datetime.combine(inicio_trabalho.date(), time(17, 0))
-                periodo_almoco_inicio = datetime.combine(inicio_trabalho.date(), time(12, 0))
-                periodo_almoco_fim = datetime.combine(inicio_trabalho.date(), time(13, 0))
 
                 def calcular_sobreposicao(inicio1, fim1, inicio2, fim2):
                     sobreposicao_inicio = max(inicio1, inicio2)
@@ -254,16 +264,27 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                         return (sobreposicao_fim - sobreposicao_inicio).total_seconds()
                     return 0
 
-                segundos_almoco = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_almoco_inicio, periodo_almoco_fim)
                 brasil_holidays = holidays.Brazil(years=inicio_trabalho.year)
                 is_dia_util = inicio_trabalho.weekday() < 5 and inicio_trabalho.date() not in brasil_holidays
                 duracao_total_bruta_segundos = (fim_trabalho - inicio_trabalho).total_seconds()
-                duracao_total_liquida_segundos = duracao_total_bruta_segundos - segundos_almoco
+
+                # NOVO: Cálculo do intervalo manual
+                segundos_intervalo = 0
+                if hora_almoco_inicio and hora_almoco_fim and hora_almoco_fim > hora_almoco_inicio:
+                    inicio_intervalo_dt = datetime.combine(data_atendimento, hora_almoco_inicio)
+                    fim_intervalo_dt = datetime.combine(data_atendimento, hora_almoco_fim)
+                    segundos_intervalo = (fim_intervalo_dt - inicio_intervalo_dt).total_seconds()
+
+                duracao_total_liquida_segundos = duracao_total_bruta_segundos - segundos_intervalo
 
                 segundos_normais = segundos_extra_50 = segundos_extra_100 = 0
                 if is_dia_util:
-                    segundos_normais_brutos = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_normal_inicio, periodo_normal_fim)
-                    segundos_normais = segundos_normais_brutos - segundos_almoco
+                    # Calcula a sobreposição com o período normal
+                    segundos_normais = calcular_sobreposicao(inicio_trabalho, fim_trabalho, periodo_normal_inicio, periodo_normal_fim)
+                    # Desconta o intervalo do período normal primeiro
+                    segundos_normais -= segundos_intervalo
+                    segundos_normais = max(0, segundos_normais) # Garante que não seja negativo
+
                     segundos_extra_50 = duracao_total_liquida_segundos - segundos_normais
                 else:
                     segundos_extra_100 = duracao_total_liquida_segundos

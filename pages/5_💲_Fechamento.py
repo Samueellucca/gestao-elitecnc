@@ -281,7 +281,11 @@ http://www.elitecncservice.com.br
                 numero_limpo = '55' + numero_limpo
             mensagem_url = quote(mensagem_envio)
             link_whatsapp = f"https://wa.me/{numero_limpo}?text={mensagem_url}"
-            st.link_button("📲 Enviar via WhatsApp", url=link_whatsapp, use_container_width=True)
+            # Usar st.markdown para um link mais robusto
+            st.markdown(
+                f'<a href="{link_whatsapp}" target="_blank" style="display: inline-block; text-align: center; width: 100%; padding: 0.25rem 0.75rem; background-color: #fafafa; color: #262730; border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; text-decoration: none;">📲 Enviar via WhatsApp</a>',
+                unsafe_allow_html=True
+            )
         else:
             st.button("📲 Enviar via WhatsApp", use_container_width=True, disabled=True)
             st.caption("Cliente sem telefone.")

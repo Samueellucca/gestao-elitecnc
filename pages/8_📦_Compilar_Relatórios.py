@@ -5,6 +5,7 @@ from fpdf import FPDF
 from datetime import datetime, date
 import smtplib
 from email.message import EmailMessage
+from urllib.parse import quote, re
 from pypdf import PdfWriter
 import io
 
@@ -206,6 +207,7 @@ else:
                     st.session_state.pdf_compilado_bytes = pdf_final_bytes
                     st.session_state.nome_arquivo_compilado = f"Relatorios_{cliente_selecionado.replace(' ', '_')}_{data_inicio.strftime('%Y%m%d')}-{data_fim.strftime('%Y%m%d')}.pdf"
                     st.session_state.email_cliente_compilado = servicos_df.iloc[0]['email_cliente']
+                    st.session_state.telefone_cliente_compilado = servicos_df.iloc[0]['telefone']
                     st.session_state.cliente_selecionado_compilado = cliente_selecionado
 
     # Botões de Ação (aparecem após gerar o PDF)
@@ -219,7 +221,7 @@ else:
         )
 
         st.subheader("Ações do PDF Compilado")
-        col_acao1, col_acao2 = st.columns(2)
+        col_acao1, col_acao2, col_acao3 = st.columns(3)
 
         with col_acao1:
             st.download_button(
@@ -231,9 +233,27 @@ else:
             )
 
         with col_acao2:
+            telefone_cliente = st.session_state.get('telefone_cliente_compilado')
+            if telefone_cliente and pd.notnull(telefone_cliente):
+                numero_limpo = re.sub(r'\D', '', str(telefone_cliente))
+                if not numero_limpo.startswith('55'):
+                    numero_limpo = '55' + numero_limpo
+                
+                mensagem_whatsapp = f"Olá {st.session_state.cliente_selecionado_compilado}, tudo bem?\n\nEstou enviando o relatório compilado dos serviços de *{data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}* para o seu e-mail.\n\nPor favor, verifique sua caixa de entrada.\n\nQualquer dúvida, estou à disposição."
+                mensagem_url = quote(mensagem_whatsapp)
+                link_whatsapp = f"https://wa.me/{numero_limpo}?text={mensagem_url}"
+                st.markdown(
+                    f'<a href="{link_whatsapp}" target="_blank" style="display: inline-block; text-align: center; width: 100%; padding: 0.25rem 0.75rem; background-color: #fafafa; color: #262730; border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; text-decoration: none;">📲 Notificar via WhatsApp</a>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.button("📲 Notificar via WhatsApp", disabled=True, use_container_width=True)
+                st.caption("Cliente sem telefone.")
+
+        with col_acao3:
             email_cliente = st.session_state.get('email_cliente_compilado')
             if email_cliente and pd.notnull(email_cliente):
-                if st.button(f"✉️ Enviar para {email_cliente}", use_container_width=True):
+                if st.button(f"✉️ Enviar para {email_cliente}", use_container_width=True, type="primary"):
                     assunto = f"Relatórios de Serviço Compilados - {st.session_state.cliente_selecionado_compilado}"
                     corpo = (
                         f"Prezado(a) {st.session_state.cliente_selecionado_compilado},\n\n"
@@ -266,5 +286,5 @@ else:
                     enviar_email_com_anexos(email_cliente, assunto, corpo, anexos_para_envio)
 
             else:
-                st.button("✉️ Enviar por Email", disabled=True, use_container_width=True)
+                st.button("✉️ Enviar por Email", disabled=True, use_container_width=True, type="primary")
                 st.caption("Cliente sem email cadastrado.")

@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine
 from email.message import EmailMessage
+import re
+from urllib.parse import quote
 import smtplib
 from datetime import datetime
 
@@ -35,8 +37,7 @@ engine = create_engine(connection_url)
 def carregar_clientes():
     """Carrega os clientes do banco de dados para o selectbox."""
     try:
-        clientes_df = pd.read_sql_query(
-            "SELECT nome, email FROM clientes ORDER BY nome",
+        clientes_df = pd.read_sql_query(            "SELECT nome, email, telefone FROM clientes ORDER BY nome",
             engine
         )
         return clientes_df
@@ -89,6 +90,7 @@ else:
     if cliente_selecionado and mes_referencia and uploaded_file:
         dados_cliente = df_clientes[df_clientes['nome'] == cliente_selecionado].iloc[0]
         email_cliente = dados_cliente.get('email')
+        telefone_cliente = dados_cliente.get('telefone')
 
         if email_cliente and pd.notnull(email_cliente):
             st.markdown("---")
@@ -112,8 +114,29 @@ http://www.elitecncservice.com.br
             assunto = st.text_input("Assunto do Email:", value=assunto_padrao)
             corpo_email = st.text_area("Corpo do Email:", value=corpo_padrao, height=200)
 
-            if st.button(f"🚀 Enviar para {email_cliente}", type="primary", use_container_width=True):
-                pdf_bytes = uploaded_file.getvalue()
-                enviar_email_com_anexo(email_cliente, assunto, corpo_email, pdf_bytes, uploaded_file.name)
+            col_acao1, col_acao2 = st.columns(2)
+            with col_acao1:
+                # --- Botão WhatsApp ---
+                if telefone_cliente and pd.notnull(telefone_cliente):
+                    numero_limpo = re.sub(r'\D', '', str(telefone_cliente))
+                    if not numero_limpo.startswith('55'):
+                        numero_limpo = '55' + numero_limpo
+                    
+                    mensagem_whatsapp = f"Olá {cliente_selecionado}, tudo bem?\n\nEstou enviando a Nota Fiscal referente a *{mes_referencia}* para o seu e-mail.\n\nPor favor, verifique sua caixa de entrada.\n\nQualquer dúvida, estou à disposição."
+                    mensagem_url = quote(mensagem_whatsapp)
+                    link_whatsapp = f"https://wa.me/{numero_limpo}?text={mensagem_url}"
+                    st.markdown(
+                        f'<a href="{link_whatsapp}" target="_blank" style="display: inline-block; text-align: center; width: 100%; padding: 0.25rem 0.75rem; background-color: #fafafa; color: #262730; border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; text-decoration: none;">📲 Notificar via WhatsApp</a>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.button("📲 Notificar via WhatsApp", disabled=True, use_container_width=True)
+                    st.caption("Cliente sem telefone.")
+
+            with col_acao2:
+                # --- Botão Email ---
+                if st.button(f"✉️ Enviar para {email_cliente}", type="primary", use_container_width=True):
+                    pdf_bytes = uploaded_file.getvalue()
+                    enviar_email_com_anexo(email_cliente, assunto, corpo_email, pdf_bytes, uploaded_file.name)
         else:
             st.error(f"O cliente '{cliente_selecionado}' não possui um email cadastrado. Por favor, atualize o cadastro na página '⭐ Clientes'.")
