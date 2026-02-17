@@ -92,10 +92,11 @@ try:
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS data_pagamento TIMESTAMP;"))
             connection.execute(text("ALTER TABLE saidas ADD COLUMN IF NOT EXISTS data_pagamento TIMESTAMP;"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente';"))
+            connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS nome_tecnicos VARCHAR(255);"))
 
             # --- Inserir valores padrão na tabela de configurações se não existirem ---
-            connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('valor_por_km', '2.30', 'Valor cobrado por KM rodado.') ON CONFLICT (chave) DO NOTHING;"))
-            connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('valor_hora_tecnica', '90.00', 'Valor padrão da hora técnica.') ON CONFLICT (chave) DO NOTHING;"))
+            connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('valor_por_km', '2.45', 'Valor cobrado por KM rodado.') ON CONFLICT (chave) DO NOTHING;"))
+            connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('valor_hora_tecnica', '100.00', 'Valor padrão da hora técnica.') ON CONFLICT (chave) DO NOTHING;"))
             connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('empresa_razao_social', 'Elite CNC Service', 'Razão Social ou Nome da Empresa para PDFs.') ON CONFLICT (chave) DO NOTHING;"))
             connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('empresa_cnpj', 'CNPJ: 61.159.425/0001-32', 'CNPJ da empresa para PDFs.') ON CONFLICT (chave) DO NOTHING;"))
 

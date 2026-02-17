@@ -106,8 +106,14 @@ def gerar_pdf_os(os_details):
     ]
     if os_details.get('maquina') and pd.notnull(os_details.get('maquina')): detalhes_servico.append(f"Máquina: {os_details.get('maquina')}")
     if os_details.get('patrimonio') and pd.notnull(os_details.get('patrimonio')): detalhes_servico.append(f"Patrimônio: {os_details.get('patrimonio')}")
+    
+    nome_tecnicos = os_details.get('nome_tecnicos')
+    if nome_tecnicos and pd.notnull(nome_tecnicos) and str(nome_tecnicos).strip() != "":
+        detalhes_servico.append(f"Técnico(s): {nome_tecnicos}")
+    else:
+        detalhes_servico.append(f"Técnicos: {os_details.get('qtd_tecnicos', 1)}")
+
     detalhes_servico.extend([
-        f"Técnicos: {os_details.get('qtd_tecnicos', 1)}",
         f"Início: {os_details.get('hora_inicio', 'N/A')}",
         f"Fim: {os_details.get('hora_fim', 'N/A')}"
     ])

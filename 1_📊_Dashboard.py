@@ -135,8 +135,8 @@ elif st.session_state["authentication_status"] is None:
 
 
 # --- CONSTANTES ---
-VALOR_POR_KM = 2.30
-VALOR_HORA_TECNICA = 90.00
+VALOR_POR_KM = 2.45
+VALOR_HORA_TECNICA = 100.00
 
 # --- ABA DE LANÇAMENTOS ---
 if "authentication_status" in st.session_state and st.session_state["authentication_status"]:
@@ -192,6 +192,7 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 pecas_default = safe_number(edit_data.get('pecas')) if is_editing_entrada and edit_data else 0.0
                 cliente_default = edit_data.get('cliente', "") if is_editing_entrada and edit_data else ""
                 qtd_tecnicos_default = safe_int(edit_data.get('qtd_tecnicos')) if is_editing_entrada and edit_data else 1
+                nome_tecnicos_default = edit_data.get('nome_tecnicos', "") if is_editing_entrada and edit_data else ""
                 
                 km_valor_default = safe_number(edit_data.get('km')) if is_editing_entrada and edit_data else 0.0
                 qtd_km_default = km_valor_default / VALOR_POR_KM if VALOR_POR_KM > 0 else 0.0
@@ -217,6 +218,7 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 st.write("Cálculo de Horas")
                 qtd_tecnicos = st.number_input("Quantidade de Técnicos", min_value=1, step=1, value=qtd_tecnicos_default)
                 qtd_tecnicos = int(qtd_tecnicos)
+                nome_tecnicos = st.text_input("Nome do(s) Técnico(s)", value=nome_tecnicos_default, placeholder="Ex: João, Maria")
                 
                 col_hora1, col_hora2 = st.columns(2)
                 with col_hora1:
@@ -304,7 +306,8 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                     'pedagio': safe_number(pedagio), 'usuario_lancamento': username, 'qtd_tecnicos': safe_int(qtd_tecnicos, default=1), 'valor_deslocamento': safe_number(valor_deslocamento),
                     'valor_laboratorio': safe_number(valor_laboratorio), 'status': status, 'valor_deslocamento_total': safe_number(valor_deslocamento) * safe_int(qtd_tecnicos, default=1),
                     'valor_hora_tecnica_total': safe_number(valor_hora_input * qtd_tecnicos), 'horas_normais': safe_number(horas_normais), 'horas_extra_50': safe_number(horas_extra_50),
-                    'horas_extra_100': safe_number(horas_extra_100)
+                    'horas_extra_100': safe_number(horas_extra_100),
+                    'nome_tecnicos': nome_tecnicos or ""
                 }
 
                 if is_editing_entrada:
@@ -411,7 +414,7 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                     "Certifique-se de que o status 'Pendente' esteja selecionado no filtro de status para visualizar lançamentos de laboratório não pagos.",
                     icon="ℹ️"
                 )
-                col_filter1, col_filter2, col_filter3 = st.columns(3)
+                col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4)
                 with col_filter1:
                     date_range = st.date_input("Filtre por período:", [min_date, max_date], min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
                 
@@ -431,6 +434,15 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                     with col_filter3:
                         cliente_filtro = st.selectbox("Filtrar por cliente:", options=["Todos"] + clientes_disponiveis)
 
+                    # Novo filtro por técnico
+                    tecnicos_disponiveis = []
+                    if 'nome_tecnicos' in entradas_df.columns:
+                        series_tecnicos = entradas_df['nome_tecnicos'].dropna().str.split(',').explode()
+                        tecnicos_disponiveis = sorted(series_tecnicos.str.strip().replace('', pd.NA).dropna().unique())
+                    
+                    with col_filter4:
+                        tecnico_filtro = st.multiselect("Filtrar por técnico:", options=tecnicos_disponiveis, default=[])
+
                     start_date_dt = pd.to_datetime(start_date)
                     end_date_dt = pd.to_datetime(end_date).replace(hour=23, minute=59, second=59)
                     
@@ -441,6 +453,12 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                         entradas_filtradas = entradas_filtradas[entradas_filtradas['cliente'] == cliente_filtro]
                     if status_filtro and 'status' in entradas_filtradas.columns:
                         entradas_filtradas = entradas_filtradas[entradas_filtradas['status'].isin(status_filtro)]
+                    
+                    if tecnico_filtro:
+                        # Cria uma expressão regular para encontrar qualquer um dos técnicos selecionados
+                        # Ex: 'Filipe|Maria'. Isso garante que "Filipe Guimaraes" seja encontrado se "Filipe" for selecionado.
+                        regex_filtro = '|'.join(tecnico_filtro)
+                        entradas_filtradas = entradas_filtradas[entradas_filtradas['nome_tecnicos'].str.contains(regex_filtro, na=False, regex=True)]
         else:
             st.warning("Nenhum dado lançado ainda.")
 
@@ -528,7 +546,8 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
             "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
             "data": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY - HH:mm"), "status": "Status",
             "descricao_servico": "Descrição do Serviço", "ordem_servico": "Nº O.S.", "cliente": "Cliente",
-            "patrimonio": "Patrimônio", "maquina": "Máquina", "hora_inicio": "Início", "hora_fim": "Fim"
+            "patrimonio": "Patrimônio", "maquina": "Máquina", "hora_inicio": "Início", "hora_fim": "Fim",
+            "nome_tecnicos": "Técnico(s)"
         }
         with st.expander("Ver todos os registros de Entrada"):
             st.dataframe(entradas_df.sort_values(by='data', ascending=False), column_config=currency_columns, use_container_width=True, hide_index=True)

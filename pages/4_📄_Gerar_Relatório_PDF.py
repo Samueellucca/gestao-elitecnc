@@ -178,7 +178,12 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         if os_details.get('patrimonio') and pd.notnull(os_details.get('patrimonio')):
             detalhes_servico.append(f"Patrimônio: {os_details.get('patrimonio')}")
 
-        detalhes_servico.append(f"Técnicos: {os_details.get('qtd_tecnicos', 1)}")    
+        nome_tecnicos = os_details.get('nome_tecnicos')
+        if nome_tecnicos and pd.notnull(nome_tecnicos) and str(nome_tecnicos).strip() != "":
+            detalhes_servico.append(f"Técnico(s): {nome_tecnicos}")
+        else:
+            detalhes_servico.append(f"Técnicos: {os_details.get('qtd_tecnicos', 1)}")
+            
         detalhes_servico.append(f"Início: {os_details.get('hora_inicio', 'N/A')}")
         detalhes_servico.append(f"Fim: {os_details.get('hora_fim', 'N/A')}")
         
