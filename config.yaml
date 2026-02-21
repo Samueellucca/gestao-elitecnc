@@ -4,23 +4,12 @@ credentials:
     samuel:
       email: samukatas@gmail.com
       name: Samuel
-      password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
-
-    # Novos usuários com a mesma senha master
-    rafael:
-      email: rafael.elitecncservice@gmail.com
-      name: Rafael
-      password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
+      password: '$2b$12$RG1Xoh//J7TgX3VnwsNhzub8KBAj29qm8R6uZPx9CrZaBeWDJ8Nry' # Senha criptografada
 
     filipe:
       email: filipe.guimaraes@icloud.com
       name: Filipe
-      password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
-
-    Patrick:
-      email: laboratorioelitecnc@hotmail.com
-      name: Patrick
-      password: '$2b$12$Ow9UD4npaShvyZqlBvoMQu2OoBlcwqjmMTJl3ZZhrmmrEWtfaSa5m' # Senha criptografada
+      password: '$2b$12$RG1Xoh//J7TgX3VnwsNhzub8KBAj29qm8R6uZPx9CrZaBeWDJ8Nry' # Senha criptografada
             
 cookie:
   expiry_days: 30

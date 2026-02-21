@@ -160,6 +160,40 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
 
         # --- FORMULÁRIO DE ENTRADAS ---
         with col_form1:
+            with st.expander("📤 Importar Entradas via CSV"):
+                st.info("Colunas sugeridas: data, cliente, valor_atendimento, ordem_servico, descricao_servico, status.")
+                uploaded_file_ent = st.file_uploader("Selecionar CSV de Entradas", type="csv", key="csv_entradas")
+                if uploaded_file_ent:
+                    try:
+                        try:
+                            df_ent_csv = pd.read_csv(uploaded_file_ent, sep=None, engine='python')
+                        except UnicodeDecodeError:
+                            uploaded_file_ent.seek(0)
+                            df_ent_csv = pd.read_csv(uploaded_file_ent, sep=None, engine='python', encoding='latin-1')
+
+                        df_ent_csv.columns = df_ent_csv.columns.str.lower()
+
+                        if 'data' in df_ent_csv.columns:
+                            df_ent_csv['data'] = pd.to_datetime(df_ent_csv['data'], dayfirst=True, errors='coerce')
+                            # Remove linhas com data inválida ou vazia (obrigatório no banco)
+                            df_ent_csv.dropna(subset=['data'], inplace=True)
+                            
+                            st.dataframe(df_ent_csv.head(), use_container_width=True)
+                            
+                            if st.button("Confirmar Importação (Entradas)", type="primary"):
+                                df_ent_csv['usuario_lancamento'] = username
+                                cols_validas = pd.read_sql("SELECT * FROM entradas LIMIT 0", engine).columns
+                                df_final = df_ent_csv[[c for c in df_ent_csv.columns if c in cols_validas]]
+                                
+                                df_final.to_sql('entradas', engine, if_exists='append', index=False)
+                                st.success(f"{len(df_final)} entradas importadas com sucesso!")
+                                st.cache_data.clear()
+                                st.rerun()
+                        else:
+                            st.error("O arquivo CSV precisa ter uma coluna chamada 'data'.")
+                    except Exception as e:
+                        st.error(f"Erro ao ler CSV: {e}")
+
             is_editing_entrada = st.session_state.edit_id is not None and st.session_state.edit_table == 'entradas'
             with st.form("form_entradas", clear_on_submit=True):
                 st.subheader("➕ Nova Entrada (O.S.)" if not is_editing_entrada else "📝 Editando Entrada")
@@ -325,6 +359,40 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
 
         # --- FORMULÁRIO DE SAÍDAS E GERENCIAMENTO ---
         with col_form2:
+            with st.expander("📤 Importar Saídas via CSV"):
+                st.info("Colunas sugeridas: data, descricao, valor, tipo_conta.")
+                uploaded_file_sai = st.file_uploader("Selecionar CSV de Saídas", type="csv", key="csv_saidas")
+                if uploaded_file_sai:
+                    try:
+                        try:
+                            df_sai_csv = pd.read_csv(uploaded_file_sai, sep=None, engine='python')
+                        except UnicodeDecodeError:
+                            uploaded_file_sai.seek(0)
+                            df_sai_csv = pd.read_csv(uploaded_file_sai, sep=None, engine='python', encoding='latin-1')
+
+                        df_sai_csv.columns = df_sai_csv.columns.str.lower()
+
+                        if 'data' in df_sai_csv.columns:
+                            df_sai_csv['data'] = pd.to_datetime(df_sai_csv['data'], dayfirst=True, errors='coerce')
+                            # Remove linhas com data inválida ou vazia (obrigatório no banco)
+                            df_sai_csv.dropna(subset=['data'], inplace=True)
+                            
+                            st.dataframe(df_sai_csv.head(), use_container_width=True)
+                            
+                            if st.button("Confirmar Importação (Saídas)", type="primary"):
+                                df_sai_csv['usuario_lancamento'] = username
+                                cols_validas = pd.read_sql("SELECT * FROM saidas LIMIT 0", engine).columns
+                                df_final = df_sai_csv[[c for c in df_sai_csv.columns if c in cols_validas]]
+                                
+                                df_final.to_sql('saidas', engine, if_exists='append', index=False)
+                                st.success(f"{len(df_final)} saídas importadas com sucesso!")
+                                st.cache_data.clear()
+                                st.rerun()
+                        else:
+                            st.error("O arquivo CSV precisa ter uma coluna chamada 'data'.")
+                    except Exception as e:
+                        st.error(f"Erro ao ler CSV: {e}")
+
             is_editing_saida = st.session_state.edit_id is not None and st.session_state.edit_table == 'saidas'
             with st.form("form_saidas", clear_on_submit=True):
                 st.subheader("➖ Nova Saída" if not is_editing_saida else "📝 Editando Saída")
@@ -346,7 +414,8 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 valor_saida = st.number_input("Valor da Despesa", min_value=0.0, format="%.2f", value=valor_default)
 
                 submit_saida = st.form_submit_button("💾 Salvar Alterações" if is_editing_saida else "✅ Lançar Saída", use_container_width=True)
-                if submit_saida:
+            
+            if submit_saida:
                     data_completa_s = datetime.combine(data_d_s, data_t_s)
                     dados_lancamento_s = {'data': data_completa_s, 'tipo_conta': tipo_conta, 'descricao': descricao_saida, 'valor': valor_saida, 'usuario_lancamento': username}
 
