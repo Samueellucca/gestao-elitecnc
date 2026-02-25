@@ -120,12 +120,27 @@ def atualizar_componente(id_componente, dados):
 df_componentes = carregar_componentes()
 df_movimentacoes = carregar_movimentacoes()
 
+# Calcula total para uso geral
+if not df_componentes.empty:
+    df_componentes['estoque_total'] = df_componentes['qtd_laboratorio'] + df_componentes['qtd_assistencia']
+else:
+    df_componentes['estoque_total'] = 0
+
+# --- METRICAS TOPO ---
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("📦 Itens Cadastrados", len(df_componentes))
+col2.metric("🏭 Qtd. Laboratório", int(df_componentes['qtd_laboratorio'].sum()) if not df_componentes.empty else 0)
+col3.metric("🛠️ Qtd. Assistência", int(df_componentes['qtd_assistencia'].sum()) if not df_componentes.empty else 0)
+low_stock_count = len(df_componentes[df_componentes['estoque_total'] <= df_componentes['estoque_minimo']]) if not df_componentes.empty else 0
+col4.metric("🚨 Abaixo do Mínimo", low_stock_count, delta=-low_stock_count if low_stock_count > 0 else 0, delta_color="inverse")
+st.markdown("---")
+
 # --- ABAS ---
-tab_geral, tab_gerenciar, tab_movimentar, tab_historico = st.tabs([
-    "📊 Visão Geral",
-    "➕ Gerenciar Componentes",
-    "🔄 Movimentar Estoque",
-    "📜 Histórico de Movimentação"
+tab_movimentar, tab_visao, tab_gerenciar, tab_historico = st.tabs([
+    "🚀 Movimentação Rápida",
+    "📊 Visão Geral do Estoque",
+    "⚙️ Cadastro e Ajustes",
+    "� Histórico de Movimentação"
 ])
 
 # --- GERENCIAMENTO DE ESTADO DE EDIÇÃO ---
@@ -142,9 +157,56 @@ if st.session_state.edit_stock_id:
         st.error(f"Erro ao carregar dados para edição: {e}")
         st.session_state.edit_stock_id = None
 
-# --- ABA 1: VISÃO GERAL E ALERTAS ---
-with tab_geral:
-    st.subheader("Visão Geral do Estoque")
+# --- ABA 1: MOVIMENTAR ESTOQUE (Prioridade) ---
+with tab_movimentar:
+    col_mov1, col_mov2 = st.columns([2, 1])
+    
+    with col_mov1:
+        st.subheader("Registrar Entrada ou Saída")
+        if df_componentes.empty:
+            st.warning("Cadastre um componente primeiro na aba 'Cadastro e Ajustes'.")
+        else:
+            with st.container(border=True):
+                componentes_dict = dict(zip(df_componentes['nome'], df_componentes['id']))
+                lista_componentes = [""] + list(componentes_dict.keys())
+
+                with st.form("form_movimentacao", clear_on_submit=True):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        nome_componente = st.selectbox("Selecione o Componente*", options=lista_componentes)
+                        tipo_movimento = st.radio("Tipo de Movimento*", ["Entrada", "Saída"], horizontal=True)
+                    with c2:
+                        local = st.radio("Local do Estoque*", ["Laboratório", "Assistência Técnica"], horizontal=True)
+                        quantidade = st.number_input("Quantidade*", min_value=1, step=1)
+
+                    observacao = st.text_area("Observação (Opcional)", placeholder="Ex: Compra do fornecedor X, Uso na O.S. 1234", height=80)
+
+                    submit_mov = st.form_submit_button("🚀 Registrar Movimentação", use_container_width=True, type="primary")
+
+                    if submit_mov:
+                        if not nome_componente:
+                            st.error("Selecione um componente.")
+                        else:
+                            componente_id = componentes_dict[nome_componente]
+                            executar_movimentacao(
+                                componente_id=componente_id,
+                                tipo_movimento=tipo_movimento,
+                                local=local,
+                                quantidade=quantidade,
+                                observacao=observacao,
+                                usuario=st.session_state.get("username", "n/a")
+                            )
+    
+    with col_mov2:
+        st.info("💡 **Dica:** Use esta aba para o dia a dia. Para ajustes de inventário ou cadastros, use as outras abas.")
+        if low_stock_count > 0:
+            st.warning(f"⚠️ Há {low_stock_count} itens com estoque baixo. Verifique a aba 'Visão Geral'.")
+
+# --- ABA 2: VISÃO GERAL E ALERTAS ---
+with tab_visao:
+    st.subheader("Panorama do Estoque")
+    
+    filtro_baixo = st.checkbox("Exibir apenas itens com estoque baixo", value=False)
 
     if df_componentes.empty:
         st.info("Nenhum componente cadastrado. Adicione componentes na aba 'Gerenciar Componentes'.")
@@ -160,13 +222,14 @@ with tab_geral:
             help="Baixa a lista completa de componentes, incluindo o ID, em um arquivo CSV."
         )
         st.markdown("---")
-
-        # Adiciona a coluna de estoque total para visualização
-        df_componentes['estoque_total'] = df_componentes['qtd_laboratorio'] + df_componentes['qtd_assistencia']
+        
+        df_display = df_componentes.copy()
+        if filtro_baixo:
+            df_display = df_display[df_display['estoque_total'] <= df_display['estoque_minimo']]
 
         # Exibe o dataframe na tela (sem a coluna de ID para uma visualização mais limpa)
         st.dataframe(
-            df_componentes[['nome', 'categoria', 'qtd_laboratorio', 'qtd_assistencia', 'estoque_total', 'estoque_minimo']],
+            df_display[['nome', 'categoria', 'qtd_laboratorio', 'qtd_assistencia', 'estoque_total', 'estoque_minimo']],
             use_container_width=True,
             hide_index=True,
             column_config={
@@ -178,27 +241,10 @@ with tab_geral:
                 "estoque_minimo": st.column_config.NumberColumn("Estoque Mínimo", format="%d"),
             }
         )
+        if filtro_baixo and df_display.empty:
+            st.success("Nenhum item com estoque baixo!")
 
-        st.markdown("---")
-        st.subheader("🚨 Alertas de Estoque Mínimo")
-        df_alerta = df_componentes[df_componentes['estoque_total'] <= df_componentes['estoque_minimo']]
-
-        if df_alerta.empty:
-            st.success("✅ Tudo certo! Nenhum item está abaixo do estoque mínimo.")
-        else:
-            st.warning(f"Atenção! {len(df_alerta)} componente(s) estão abaixo do nível mínimo de estoque.")
-            st.dataframe(
-                df_alerta[['nome', 'estoque_total', 'estoque_minimo']],
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "nome": "Componente",
-                    "estoque_total": "Estoque Atual",
-                    "estoque_minimo": "Estoque Mínimo"
-                }
-            )
-
-# --- ABA 2: GERENCIAR COMPONENTES ---
+# --- ABA 3: GERENCIAR COMPONENTES ---
 with tab_gerenciar:
     st.subheader("Adicionar ou Editar Componente")
     if edit_data:
@@ -365,44 +411,6 @@ with tab_gerenciar:
     else:
         st.info("Nenhum componente cadastrado.")
 
-# --- ABA 3: MOVIMENTAR ESTOQUE ---
-with tab_movimentar:
-    st.subheader("Registrar Entrada ou Saída de Componentes")
-
-    if df_componentes.empty:
-        st.warning("Cadastre um componente primeiro na aba 'Gerenciar Componentes'.")
-    else:
-        componentes_dict = dict(zip(df_componentes['nome'], df_componentes['id']))
-        lista_componentes = [""] + list(componentes_dict.keys())
-
-        with st.form("form_movimentacao", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                nome_componente = st.selectbox("Selecione o Componente*", options=lista_componentes)
-                tipo_movimento = st.radio("Tipo de Movimento*", ["Entrada", "Saída"], horizontal=True)
-            with col2:
-                local = st.radio("Local do Estoque*", ["Laboratório", "Assistência Técnica"], horizontal=True)
-                quantidade = st.number_input("Quantidade*", min_value=1, step=1)
-
-            observacao = st.text_area("Observação (Opcional)", placeholder="Ex: Compra do fornecedor X, Uso na O.S. 1234")
-
-            submit_mov = st.form_submit_button("🚀 Registrar Movimentação", use_container_width=True, type="primary")
-
-            if submit_mov:
-                if not nome_componente:
-                    st.error("Selecione um componente.")
-                else:
-                    componente_id = componentes_dict[nome_componente]
-                    executar_movimentacao(
-                        componente_id=componente_id,
-                        tipo_movimento=tipo_movimento,
-                        local=local,
-                        quantidade=quantidade,
-                        observacao=observacao,
-                        usuario=st.session_state.get("username", "n/a")
-                    )
-
-# --- ABA 4: HISTÓRICO DE MOVIMENTAÇÃO ---
     # --- Seção: Inventário (Contagem Física) ---
     st.markdown("---")
     st.subheader("Inventário (Contagem Física)")
@@ -548,6 +556,7 @@ with tab_movimentar:
                 except Exception as e:
                     st.error(f"Erro ao processar CSV de inventário: {e}")
 
+# --- ABA 4: HISTÓRICO ---
 with tab_historico:
     st.subheader("Histórico Completo de Movimentações")
 

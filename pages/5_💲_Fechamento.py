@@ -92,7 +92,7 @@ def enviar_pdf_por_email(destinatario, assunto, corpo, dados_pdf, nome_arquivo_p
 def carregar_clientes_e_dados():
     try:
         clientes_df = pd.read_sql_query(
-            "SELECT nome, telefone, email FROM clientes ORDER BY nome",
+            "SELECT nome, telefone, email, cnpj FROM clientes ORDER BY nome",
             engine
         )
         return clientes_df
@@ -107,6 +107,7 @@ def buscar_servicos_cliente(cliente, data_inicio, data_fim):
         FROM entradas
         WHERE cliente = '{cliente}' 
           AND date(data) BETWEEN '{data_inicio}' AND '{data_fim}'
+          AND status NOT IN ('Negociado', 'Cancelado')
         ORDER BY data ASC
         """
         return pd.read_sql_query(query, engine, parse_dates=['data'])
@@ -167,6 +168,7 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     dados_cliente = df_clientes[df_clientes['nome'] == cliente_selecionado].iloc[0]
     telefone_cliente = dados_cliente.get('telefone')
     email_cliente = dados_cliente.get('email')
+    cnpj_cliente = dados_cliente.get('cnpj')
 
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -180,6 +182,7 @@ if 'servicos_df' in st.session_state and not st.session_state.servicos_df.empty:
     pdf.multi_cell(
         95, 6,
         f"Nome: {cliente_selecionado}\n"
+        f"CNPJ: {cnpj_cliente if pd.notnull(cnpj_cliente) else 'N/A'}\n"
         f"Telefone: {telefone_cliente if pd.notnull(telefone_cliente) else 'N/A'}\n"
         f"Email: {email_cliente if pd.notnull(email_cliente) else 'N/A'}"
     )

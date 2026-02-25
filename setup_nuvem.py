@@ -30,7 +30,8 @@ try:
                 descricao TEXT,
                 valor NUMERIC(10, 2),
                 usuario_lancamento VARCHAR(255),
-                status VARCHAR(50) DEFAULT 'Pendente'
+                status VARCHAR(50) DEFAULT 'Pendente',
+                data_pagamento TIMESTAMP
             );"""))
 
             connection.execute(text("""
@@ -52,7 +53,8 @@ try:
                 pedagio NUMERIC(10, 2),
                 usuario_lancamento VARCHAR(255),
                 hora_inicio TEXT,
-                hora_fim TEXT
+                hora_fim TEXT,
+                data_pagamento TIMESTAMP
             );"""))
 
             connection.execute(text("""
@@ -93,6 +95,7 @@ try:
             connection.execute(text("ALTER TABLE saidas ADD COLUMN IF NOT EXISTS data_pagamento TIMESTAMP;"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente';"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS nome_tecnicos VARCHAR(255);"))
+            connection.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cnpj VARCHAR(255);"))
 
             # --- Inserir valores padrão na tabela de configurações se não existirem ---
             connection.execute(text("INSERT INTO configuracoes (chave, valor, descricao) VALUES ('valor_por_km', '2.45', 'Valor cobrado por KM rodado.') ON CONFLICT (chave) DO NOTHING;"))

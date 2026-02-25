@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from sqlalchemy import create_engine, text
+from fpdf import FPDF
+import io
 
 # --- VERIFICAÇÃO DE LOGIN ---
 if "authentication_status" not in st.session_state or not st.session_state["authentication_status"]:
@@ -34,7 +36,7 @@ def carregar_clientes():
 @st.cache_data(ttl=300)
 def carregar_lancamentos_recentes():
     """Carrega os 50 lançamentos de entrada mais recentes para gerenciamento."""
-    query = "SELECT id, data, ordem_servico, cliente, valor_atendimento FROM entradas ORDER BY data DESC LIMIT 50"
+    query = "SELECT id, data, ordem_servico, cliente, valor_atendimento, status, nome_tecnicos FROM entradas ORDER BY data DESC LIMIT 50"
     df = pd.read_sql_query(query, engine, parse_dates=['data'])
     return df
 
@@ -71,6 +73,47 @@ def atualizar_lancamento(id_lancamento, dados):
     except Exception as e:
         st.error(f"Erro ao atualizar lançamento: {e}")
 
+def gerar_etiqueta_pdf(id_lancamento):
+    """Gera uma etiqueta PDF 100x60mm para o lançamento."""
+    try:
+        # Busca os dados completos do lançamento
+        dados = pd.read_sql_query(f"SELECT * FROM entradas WHERE id = {id_lancamento}", engine).iloc[0]
+        
+        # Configuração do PDF (Paisagem, mm, 100x60 - Tamanho comum de etiqueta térmica)
+        pdf = FPDF('L', 'mm', (60, 100))
+        pdf.set_margins(3, 3, 3)
+        pdf.add_page()
+
+        # Tenta usar fonte DejaVu se disponível, senão Arial
+        try:
+            pdf.add_font('DejaVu', '', 'DejaVuSans.ttf')
+            pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf')
+            pdf.set_font('DejaVu', 'B', 10)
+        except:
+            pdf.set_font('Arial', 'B', 10)
+
+        # Cabeçalho
+        pdf.cell(0, 5, "ELITE CNC - LABORATÓRIO", 0, 1, 'C')
+        pdf.line(2, 9, 98, 9)
+        pdf.ln(4)
+
+        # Número da O.S. em destaque
+        pdf.set_font(size=16)
+        pdf.cell(0, 8, f"O.S.: {dados['ordem_servico']}", 0, 1, 'C')
+        pdf.ln(2)
+
+        # Detalhes
+        pdf.set_font(size=9)
+        pdf.cell(0, 5, f"Cliente: {str(dados['cliente'])[:28]}", 0, 1, 'L')
+        pdf.cell(0, 5, f"Data: {pd.to_datetime(dados['data']).strftime('%d/%m/%Y')}", 0, 1, 'L')
+        pdf.cell(0, 5, f"Equip: {str(dados['maquina'])[:28]}", 0, 1, 'L')
+        pdf.cell(0, 5, f"Patrimônio: {str(dados['patrimonio'])[:20]}", 0, 1, 'L')
+
+        return bytes(pdf.output())
+    except Exception as e:
+        st.error(f"Erro ao gerar etiqueta: {e}")
+        return None
+
 # --- CARREGANDO DADOS ---
 clientes_cadastrados = carregar_clientes()
 
@@ -98,6 +141,7 @@ with col1:
     os_id_default = edit_data.get('ordem_servico', '') if edit_data else ''
     cliente_default = edit_data.get('cliente', '') if edit_data else ''
     equipamento_default = edit_data.get('maquina', '') if edit_data else ''
+    tecnico_default = edit_data.get('nome_tecnicos', st.session_state.get("username", "")) if edit_data else st.session_state.get("username", "")
     
     # Extrai o modelo da descrição, se possível
     descricao_completa_default = edit_data.get('descricao_servico', '') if edit_data else ''
@@ -115,28 +159,38 @@ with col1:
 
     with st.form("form_laboratorio", clear_on_submit=(st.session_state.edit_lab_id is None)):
         st.subheader("📝 Detalhes do Serviço" if not edit_data else f"📝 Editando O.S. {os_id_default}")
+        
+        with st.container(border=True):
+            # --- CAMPOS DO FORMULÁRIO ---
+            st.markdown("##### 🛠️ Dados do Equipamento")
+            c1, c2 = st.columns(2)
+            with c1:
+                data_atendimento = st.date_input("Data do Atendimento", value=data_default)
+                cliente_index = clientes_cadastrados.index(cliente_default) if cliente_default in clientes_cadastrados else 0
+                cliente = st.selectbox("Cliente", options=clientes_cadastrados, index=cliente_index)
+                equipamento = st.text_input("Equipamento", value=equipamento_default)
+                numero_serie = st.text_input("Número de Série (Patrimônio)", value=numero_serie_default)
+            
+            with c2:
+                os_id = st.text_input("Nº da O.S.", value=os_id_default)
+                tecnico_responsavel = st.text_input("Técnico Responsável", value=tecnico_default)
+                modelo = st.text_input("Modelo", value=modelo_default)
+                # Espaçador visual para alinhar
+                st.write("")
+            
+            st.markdown("---")
+            st.markdown("##### 📝 Descrição e Valores")
+            descricao_servico = st.text_area("Descrição do Serviço Realizado", value=descricao_servico_default, height=100)
+            
+            
+            c_val1, c_val2 = st.columns(2)
+            with c_val1:
+                valor_laboratorio = st.number_input("Mão de Obra (Laboratório)", min_value=0.0, format="%.2f", value=valor_lab_default)
+            with c_val2:
+                pecas_utilizadas = st.number_input("Peças Utilizadas", min_value=0.0, format="%.2f", value=pecas_default)
 
-        # --- CAMPOS DO FORMULÁRIO ---
-        data_atendimento = st.date_input("Data do Atendimento", value=data_default)
-        os_id = st.text_input("Nº da O.S.", value=os_id_default)
-        
-        cliente_index = clientes_cadastrados.index(cliente_default) if cliente_default in clientes_cadastrados else 0
-        cliente = st.selectbox("Cliente", options=clientes_cadastrados, index=cliente_index)
-        
-        equipamento = st.text_input("Equipamento", value=equipamento_default)
-        modelo = st.text_input("Modelo", value=modelo_default)
-        numero_serie = st.text_input("Número de Série (Patrimônio)", value=numero_serie_default)
-        
-        descricao_servico = st.text_area("Descrição do Serviço Realizado", value=descricao_servico_default)
-        
-        st.markdown("---")
-        st.subheader("💰 Valores")
-        
-        valor_laboratorio = st.number_input("Valor do Serviço de Laboratório (R$)", min_value=0.0, format="%.2f", value=valor_lab_default)
-        pecas_utilizadas = st.number_input("Valor das Peças Utilizadas (R$)", min_value=0.0, format="%.2f", value=pecas_default)
-
-        submit_button_text = "💾 Salvar Alterações" if st.session_state.edit_lab_id else "✅ Lançar Serviço"
-        submit_button = st.form_submit_button(submit_button_text, use_container_width=True, type="primary")
+            submit_button_text = "💾 Salvar Alterações" if st.session_state.edit_lab_id else "✅ Lançar Serviço"
+            submit_button = st.form_submit_button(submit_button_text, use_container_width=True, type="primary")
 
         if submit_button:
             if not cliente or not os_id:
@@ -163,9 +217,11 @@ with col1:
                     'valor_atendimento': valor_total,
                     'status': 'Pendente', # O lançamento já entra como pendente de pagamento
                     'usuario_lancamento': st.session_state.get("username", "n/a"),
+                    'nome_tecnicos': tecnico_responsavel,
+                    'qtd_tecnicos': 1, # Define como 1 para contar nos relatórios de produtividade
                     # Zerando outros campos numéricos para consistência
                     'horas_tecnicas': 0, 'horas_tecnicas_50': 0, 'horas_tecnicas_100': 0,
-                    'km': 0, 'refeicao': 0, 'pedagio': 0, 'valor_deslocamento': 0, 'qtd_tecnicos': 0
+                    'km': 0, 'refeicao': 0, 'pedagio': 0, 'valor_deslocamento': 0
                 }
 
                 if st.session_state.edit_lab_id:
@@ -182,43 +238,54 @@ with col1:
                         st.error(f"Ocorreu um erro ao salvar no banco de dados: {e}")
 
 with col2:
-    st.image("logo.png", width=250)
-    st.info(
-        "**Como funciona?**\n\n"
-        "1. Preencha todos os campos do serviço.\n"
-        "2. O valor total será a soma do **Serviço de Laboratório** + **Peças**.\n"
-        "3. Ao lançar, uma nova **entrada pendente** será criada.\n"
-        "4. Você poderá dar baixa no pagamento na tela de **Controle Financeiro**."
-    )
-
-    st.markdown("---")
-    st.subheader("⚙️ Gerenciar Lançamentos")
-
-    if st.session_state.edit_lab_id:
-        if st.button("Cancelar Edição", use_container_width=True):
-            st.session_state.edit_lab_id = None
-            st.rerun()
-
-    df_gerenciar = carregar_lancamentos_recentes()
-
-    if not df_gerenciar.empty:
-        df_gerenciar['display'] = df_gerenciar.apply(
-            lambda row: f"ID {row['id']}: {row['data'].strftime('%d/%m/%y')} - {row.get('cliente', 'N/A')} - O.S. {row.get('ordem_servico', 'N/A')}",
-            axis=1
-        )
-        lancamento_selecionado = st.selectbox(
-            "Selecione um lançamento para editar ou excluir:",
-            options=[""] + df_gerenciar['display'].tolist()
+    with st.container(border=True):
+        st.image("logo.png", use_container_width=True)
+        st.info(
+            "**Fluxo de Trabalho:**\n\n"
+            "1. Preencha os dados do serviço.\n"
+            "2. Valor Total = **Mão de Obra** + **Peças**.\n"
+            "3. Gera uma **entrada pendente**.\n"
+            "4. Baixe no **Controle Financeiro**."
         )
 
-        if lancamento_selecionado:
-            id_selecionado = int(lancamento_selecionado.split(':')[0].replace('ID', '').strip())
-            
-            btn_col1, btn_col2 = st.columns(2)
-            if btn_col1.button("📝 Carregar para Edição", key=f"edit_{id_selecionado}", use_container_width=True):
-                st.session_state.edit_lab_id = id_selecionado
+    st.write("")
+
+    with st.container(border=True):
+        st.subheader("⚙️ Histórico Recente")
+
+        if st.session_state.edit_lab_id:
+            st.warning(f"Editando ID: {st.session_state.edit_lab_id}")
+            if st.button("❌ Cancelar Edição", use_container_width=True):
+                st.session_state.edit_lab_id = None
                 st.rerun()
-            
-            if btn_col2.button("🗑️ Excluir", type="primary", key=f"delete_{id_selecionado}", use_container_width=True):
-                deletar_lancamento(id_selecionado)
-                st.rerun()
+
+        df_gerenciar = carregar_lancamentos_recentes()
+
+        if not df_gerenciar.empty:
+            # Ordena para garantir que o mais recente apareça primeiro na lista
+            df_gerenciar['display'] = df_gerenciar.apply(
+                lambda row: f"{'✅' if row.get('status') == 'Pago' else '⏳'} {row['data'].strftime('%d/%m')} - {str(row.get('cliente') or 'N/A').split()[0]} - O.S. {row.get('ordem_servico', 'N/A')} (ID: {row['id']})",
+                axis=1
+            )
+            lancamento_selecionado = st.selectbox(
+                "Selecione para editar ou excluir:",
+                options=[""] + df_gerenciar['display'].tolist()
+            )
+
+            if lancamento_selecionado:
+                # Extrai o ID do final da string "(ID: 123)"
+                id_selecionado = int(lancamento_selecionado.split("(ID: ")[1].replace(")", "").strip())
+                
+                btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1.5])
+                if btn_col1.button("📝 Editar", key=f"edit_{id_selecionado}", use_container_width=True):
+                    st.session_state.edit_lab_id = id_selecionado
+                    st.rerun()
+                
+                if btn_col2.button("🗑️ Excluir", type="primary", key=f"delete_{id_selecionado}", use_container_width=True):
+                    deletar_lancamento(id_selecionado)
+                    st.rerun()
+                
+                # Botão de Etiqueta
+                pdf_bytes = gerar_etiqueta_pdf(id_selecionado)
+                if pdf_bytes:
+                    btn_col3.download_button("🖨️ Etiqueta", data=pdf_bytes, file_name=f"Etiqueta_OS_{id_selecionado}.pdf", mime="application/pdf", use_container_width=True)

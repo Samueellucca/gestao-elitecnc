@@ -61,17 +61,18 @@ class PDF(FPDF):
 @st.cache_data
 def carregar_clientes_e_dados():
     try:
-        clientes_df = pd.read_sql_query("SELECT nome, telefone, email, endereco FROM clientes ORDER BY nome", engine)
+        clientes_df = pd.read_sql_query("SELECT nome, telefone, email, endereco, cnpj FROM clientes ORDER BY nome", engine)
         return clientes_df
     except Exception as e:
         st.error(f"Erro ao carregar clientes: {e}"); return pd.DataFrame()
 
 def buscar_servicos_completos_cliente(cliente, data_inicio, data_fim):
     query = f"""
-    SELECT e.*, c.telefone, c.email as email_cliente, c.endereco
+    SELECT e.*, c.telefone, c.email as email_cliente, c.endereco, c.cnpj
     FROM entradas e
     LEFT JOIN clientes c ON e.cliente = c.nome
     WHERE e.cliente = '{cliente}' AND date(e.data) BETWEEN '{data_inicio}' AND '{data_fim}'
+    AND e.status NOT IN ('Negociado', 'Cancelado')
     ORDER BY e.data ASC
     """
     return pd.read_sql_query(query, engine, parse_dates=['data'])
@@ -92,6 +93,7 @@ def gerar_pdf_os(os_details):
     pdf.set_font('DejaVu', 'B', 12); pdf.cell(95, 8, 'DADOS DO CLIENTE', 'B', 1, 'L'); pdf.ln(2)
     pdf.set_font('DejaVu', '', 10)
     pdf.multi_cell(95, 6, f"Nome: {os_details.get('cliente', 'N/A')}\n"
+                         f"CNPJ: {os_details.get('cnpj', 'N/A')}\n"
                          f"Telefone: {os_details.get('telefone', 'N/A')}\n"
                          f"Endereço: {os_details.get('endereco', 'N/A')}")
 

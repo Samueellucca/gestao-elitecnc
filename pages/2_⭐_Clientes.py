@@ -33,7 +33,7 @@ engine = create_engine(connection_url)
 @st.cache_data
 def carregar_clientes_db():
     try:
-        query = "SELECT id, nome, telefone, email, endereco FROM clientes ORDER BY nome"
+        query = "SELECT id, nome, telefone, email, endereco, cnpj FROM clientes ORDER BY nome"
         clientes_df = pd.read_sql_query(query, engine)
         return clientes_df
     except Exception as e:
@@ -56,6 +56,7 @@ def atualizar_cliente(id_cliente, dados):
 st.subheader("Adicionar Novo Cliente")
 with st.form("form_novo_cliente", clear_on_submit=True):
     nome = st.text_input("Nome do Cliente*")
+    cnpj = st.text_input("CNPJ")
     telefone = st.text_input("Telefone")
     email = st.text_input("Email")
     endereco = st.text_area("Endereço")
@@ -69,6 +70,7 @@ with st.form("form_novo_cliente", clear_on_submit=True):
             try:
                 novo_cliente = pd.DataFrame([{
                     "nome": nome,
+                    "cnpj": cnpj,
                     "telefone": telefone,
                     "email": email,
                     "endereco": endereco
@@ -88,7 +90,7 @@ df_clientes = carregar_clientes_db()
 # Renomeia as colunas para exibição amigável no dataframe
 df_clientes_display = df_clientes.rename(columns={
     'id': 'ID', 'nome': 'Nome', 'telefone': 'Telefone', 
-    'email': 'Email', 'endereco': 'Endereço'
+    'email': 'Email', 'endereco': 'Endereço', 'cnpj': 'CNPJ'
 })
 
 if not df_clientes.empty:
@@ -114,6 +116,7 @@ if not df_clientes.empty:
         with st.form("form_atualizar_cliente"):
             st.info(f"Você está editando o cliente: **{dados_cliente['nome']}**")
             nome_upd = st.text_input("Nome do Cliente*", value=dados_cliente['nome'])
+            cnpj_upd = st.text_input("CNPJ", value=dados_cliente['cnpj'] if pd.notnull(dados_cliente['cnpj']) else "")
             telefone_upd = st.text_input("Telefone", value=dados_cliente['telefone'])
             email_upd = st.text_input("Email", value=dados_cliente['email'])
             endereco_upd = st.text_area("Endereço", value=dados_cliente['endereco'])
@@ -125,8 +128,16 @@ if not df_clientes.empty:
                     st.error("O campo 'Nome do Cliente' é obrigatório.")
                 else:
                     try:
-                        dados_atualizados = {"nome": nome_upd, "telefone": telefone_upd, "email": email_upd, "endereco": endereco_upd}
+                        dados_atualizados = {"nome": nome_upd, "cnpj": cnpj_upd, "telefone": telefone_upd, "email": email_upd, "endereco": endereco_upd}
                         atualizar_cliente(id_cliente_atualizar, dados_atualizados)
+                        
+                        # --- CORREÇÃO: Atualizar nome nas entradas antigas se o nome mudou ---
+                        nome_antigo = dados_cliente['nome']
+                        if nome_antigo != nome_upd:
+                            with engine.connect() as con:
+                                con.execute(text("UPDATE entradas SET cliente = :novo WHERE cliente = :antigo"), {"novo": nome_upd, "antigo": nome_antigo})
+                                con.commit()
+                        
                         st.success(f"Cliente '{nome_upd}' atualizado com sucesso!")
                         st.cache_data.clear()
                         st.rerun()

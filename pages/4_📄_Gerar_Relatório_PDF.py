@@ -105,7 +105,7 @@ def enviar_pdf_por_email(destinatario, assunto, corpo, dados_pdf, nome_arquivo_p
 def carregar_dados_completos():
     try:
         entradas_df = pd.read_sql("SELECT * FROM entradas", engine, parse_dates=['data'])
-        clientes_df = pd.read_sql("SELECT nome, telefone, email, endereco FROM clientes", engine)
+        clientes_df = pd.read_sql("SELECT nome, telefone, email, endereco, cnpj FROM clientes", engine)
         
         if not entradas_df.empty:
             merged_df = pd.merge(entradas_df, clientes_df, left_on='cliente', right_on='nome', how='left')
@@ -154,6 +154,7 @@ if not df_os.empty and 'ordem_servico' in df_os.columns and not df_os['ordem_ser
         pdf.ln(2)
         pdf.set_font('DejaVu', '', 10)
         pdf.multi_cell(95, 6, f"Nome: {os_details.get('cliente', 'N/A')}\n"
+                             f"CNPJ: {os_details.get('cnpj', 'N/A')}\n"
                              f"Telefone: {telefone_cliente}\n"
                              f"Endereço: {os_details.get('endereco', 'N/A')}")
         # BLOCO NOVO E CORRIGIDO
