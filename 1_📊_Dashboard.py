@@ -275,11 +275,17 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                                 uploaded_file_ent.seek(0)
                                 df_ent_csv = pd.read_csv(uploaded_file_ent, sep=None, engine='python', encoding='latin-1')
 
-                            df_ent_csv.columns = df_ent_csv.columns.str.lower()
+                            df_ent_csv.columns = df_ent_csv.columns.str.lower().str.strip()
 
                             if 'data' in df_ent_csv.columns:
                                 df_ent_csv['data'] = pd.to_datetime(df_ent_csv['data'], dayfirst=True, errors='coerce')
                                 df_ent_csv.dropna(subset=['data'], inplace=True)
+
+                                # Limpeza e conversão da coluna 'valor_atendimento'
+                                if 'valor_atendimento' in df_ent_csv.columns:
+                                    df_ent_csv['valor_atendimento'] = df_ent_csv['valor_atendimento'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+                                    df_ent_csv['valor_atendimento'] = pd.to_numeric(df_ent_csv['valor_atendimento'], errors='coerce').fillna(0.0)
+
                                 st.dataframe(df_ent_csv.head(), use_container_width=True)
                                 if st.button("Confirmar Importação (Entradas)", type="primary"):
                                     df_ent_csv['usuario_lancamento'] = username
@@ -488,11 +494,17 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                                 uploaded_file_sai.seek(0)
                                 df_sai_csv = pd.read_csv(uploaded_file_sai, sep=None, engine='python', encoding='latin-1')
 
-                            df_sai_csv.columns = df_sai_csv.columns.str.lower()
+                            df_sai_csv.columns = df_sai_csv.columns.str.lower().str.strip()
 
                             if 'data' in df_sai_csv.columns:
                                 df_sai_csv['data'] = pd.to_datetime(df_sai_csv['data'], dayfirst=True, errors='coerce')
                                 df_sai_csv.dropna(subset=['data'], inplace=True)
+
+                                # Limpeza e conversão da coluna 'valor'
+                                if 'valor' in df_sai_csv.columns:
+                                    df_sai_csv['valor'] = df_sai_csv['valor'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+                                    df_sai_csv['valor'] = pd.to_numeric(df_sai_csv['valor'], errors='coerce').fillna(0.0)
+
                                 st.dataframe(df_sai_csv.head(), use_container_width=True)
 
                                 agrupar_saidas = st.checkbox("Agrupar saídas por mês e descrição?", value=False, key="agrupar_saidas_csv", help="Marque para somar valores com a mesma descrição dentro do mesmo mês em um único lançamento.")
