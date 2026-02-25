@@ -494,10 +494,29 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                                 df_sai_csv['data'] = pd.to_datetime(df_sai_csv['data'], dayfirst=True, errors='coerce')
                                 df_sai_csv.dropna(subset=['data'], inplace=True)
                                 st.dataframe(df_sai_csv.head(), use_container_width=True)
+
+                                agrupar_saidas = st.checkbox("Agrupar saídas por mês e descrição?", value=False, key="agrupar_saidas_csv", help="Marque para somar valores com a mesma descrição dentro do mesmo mês em um único lançamento.")
+
                                 if st.button("Confirmar Importação (Saídas)", type="primary"):
-                                    df_sai_csv['usuario_lancamento'] = username
+                                    df_para_processar = df_sai_csv.copy()
+
+                                    if agrupar_saidas:
+                                        # Adiciona uma coluna para agrupar por mês/ano
+                                        df_para_processar['mes_ano'] = df_para_processar['data'].dt.to_period('M')
+                                        
+                                        # Agrupa, soma os valores e pega o primeiro tipo de conta
+                                        df_agrupado = df_para_processar.groupby(['mes_ano', 'descricao']).agg(
+                                            valor=('valor', 'sum'),
+                                            tipo_conta=('tipo_conta', 'first')
+                                        ).reset_index()
+                                        
+                                        # Recria a coluna 'data' como o primeiro dia do mês
+                                        df_agrupado['data'] = df_agrupado['mes_ano'].dt.to_timestamp()
+                                        df_para_processar = df_agrupado
+
+                                    df_para_processar['usuario_lancamento'] = username
                                     cols_validas = pd.read_sql("SELECT * FROM saidas LIMIT 0", engine).columns
-                                    df_final = df_sai_csv[[c for c in df_sai_csv.columns if c in cols_validas]]
+                                    df_final = df_para_processar[[c for c in df_para_processar.columns if c in cols_validas]]
                                     df_final.to_sql('saidas', engine, if_exists='append', index=False)
                                     st.success(f"{len(df_final)} saídas importadas com sucesso!")
                                     st.cache_data.clear()
