@@ -738,6 +738,14 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                         with c_bot2:
                             tecnico_filtro = st.multiselect("🔧 Técnico:", options=tecnicos_disponiveis, default=[], placeholder="Todos os técnicos")
 
+                        # Linha 3: Filtros de Saída
+                        st.markdown("---")
+                        c_out1, c_out2 = st.columns(2)
+                        with c_out1:
+                             filtro_descricao_saida = st.text_input("🔍 Buscar na Descrição (Saídas):", placeholder="Ex: Gasolina, Peças...")
+                        with c_out2:
+                             filtro_tipo_saida = st.multiselect("📂 Tipo de Conta (Saídas):", options=["Fixa", "Variável"], default=[])
+
                         # --- APLICAÇÃO DOS FILTROS ---
                         start_date_dt = pd.to_datetime(start_date)
                         end_date_dt = pd.to_datetime(end_date).replace(hour=23, minute=59, second=59)
@@ -753,6 +761,13 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                         if tecnico_filtro:
                             regex_filtro = '|'.join(tecnico_filtro)
                             entradas_filtradas = entradas_filtradas[entradas_filtradas['nome_tecnicos'].str.contains(regex_filtro, na=False, regex=True)]
+
+                        # Aplicação dos Filtros de Saída
+                        if filtro_descricao_saida and 'descricao' in saidas_filtradas.columns:
+                            saidas_filtradas = saidas_filtradas[saidas_filtradas['descricao'].str.contains(filtro_descricao_saida, case=False, na=False)]
+                        
+                        if filtro_tipo_saida and 'tipo_conta' in saidas_filtradas.columns:
+                            saidas_filtradas = saidas_filtradas[saidas_filtradas['tipo_conta'].isin(filtro_tipo_saida)]
         else:
             st.warning("Nenhum dado lançado ainda.")
 
