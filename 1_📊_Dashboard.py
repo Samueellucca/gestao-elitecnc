@@ -616,6 +616,42 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
             else:
                 st.info(f"Nenhum(a) {tipo_lancamento.lower()} para gerenciar.")
 
+            # --- EXCLUSÃO EM MASSA ---
+            if not df_gerenciar.empty:
+                st.markdown("---")
+                with st.expander("🗑️ Exclusão em Massa (Por Período)"):
+                    st.warning(f"⚠️ Cuidado: Isso apagará TODOS os registros de **{tipo_lancamento}** no período selecionado.")
+                    
+                    c_del1, c_del2 = st.columns(2)
+                    dt_del_inicio = c_del1.date_input("De:", value=datetime.now().date(), key="dt_del_ini")
+                    dt_del_fim = c_del2.date_input("Até:", value=datetime.now().date(), key="dt_del_fim")
+                    
+                    # Filtra para preview
+                    mask_del = (df_gerenciar['data'].dt.date >= dt_del_inicio) & (df_gerenciar['data'].dt.date <= dt_del_fim)
+                    df_del_preview = df_gerenciar[mask_del]
+                    
+                    st.write(f"**{len(df_del_preview)}** registros encontrados para exclusão.")
+                    
+                    if not df_del_preview.empty:
+                        st.dataframe(df_del_preview.head(5), use_container_width=True)
+                        if st.button(f"🔥 Confirmar Exclusão de {len(df_del_preview)} itens", type="primary", use_container_width=True):
+                            tabela = 'entradas' if tipo_lancamento == "Entrada" else 'saidas'
+                            ids = tuple(df_del_preview['id'].tolist())
+                            
+                            if ids:
+                                try:
+                                    with engine.connect() as con:
+                                        if len(ids) == 1:
+                                            con.execute(text(f"DELETE FROM {tabela} WHERE id = :id"), {"id": ids[0]})
+                                        else:
+                                            con.execute(text(f"DELETE FROM {tabela} WHERE id IN :ids"), {"ids": ids})
+                                        con.commit()
+                                    st.success("Registros excluídos com sucesso!")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao excluir: {e}")
+
 # --- ABA DO DASHBOARD ---
 if "authentication_status" in st.session_state and st.session_state["authentication_status"]:
     with tab1:
