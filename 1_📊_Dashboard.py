@@ -283,7 +283,12 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
 
                                 # Limpeza e conversão da coluna 'valor_atendimento'
                                 if 'valor_atendimento' in df_ent_csv.columns:
-                                    df_ent_csv['valor_atendimento'] = df_ent_csv['valor_atendimento'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+                                    def clean_valor(v):
+                                        v_str = str(v).strip()
+                                        if ',' in v_str:
+                                            return v_str.replace('.', '').replace(',', '.')
+                                        return v_str
+                                    df_ent_csv['valor_atendimento'] = df_ent_csv['valor_atendimento'].apply(clean_valor)
                                     df_ent_csv['valor_atendimento'] = pd.to_numeric(df_ent_csv['valor_atendimento'], errors='coerce').fillna(0.0)
 
                                 st.dataframe(df_ent_csv.head(), use_container_width=True)
@@ -502,7 +507,12 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
 
                                 # Limpeza e conversão da coluna 'valor'
                                 if 'valor' in df_sai_csv.columns:
-                                    df_sai_csv['valor'] = df_sai_csv['valor'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+                                    def clean_valor(v):
+                                        v_str = str(v).strip()
+                                        if ',' in v_str:
+                                            return v_str.replace('.', '').replace(',', '.')
+                                        return v_str
+                                    df_sai_csv['valor'] = df_sai_csv['valor'].apply(clean_valor)
                                     df_sai_csv['valor'] = pd.to_numeric(df_sai_csv['valor'], errors='coerce').fillna(0.0)
 
                                 st.dataframe(df_sai_csv.head(), use_container_width=True)
