@@ -160,7 +160,7 @@ if st.session_state["authentication_status"]:
     username = st.session_state["username"]
     
     # --- FUNÇÕES DE BANCO DE DADOS ---
-    @st.cache_data
+    @st.cache_data(ttl=300)
     def carregar_dados():
         try:
             entradas_df = pd.read_sql_query("SELECT * FROM entradas", engine, parse_dates=['data'])
@@ -276,6 +276,17 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                                 df_ent_csv = pd.read_csv(uploaded_file_ent, sep=None, engine='python', encoding='latin-1')
 
                             df_ent_csv.columns = df_ent_csv.columns.str.lower().str.strip()
+
+                            # Renomeia colunas comuns para o padrão do banco de dados
+                            rename_map = {
+                                'descricao': 'descricao_servico',
+                                'descrição': 'descricao_servico',
+                                'descriçao': 'descricao_servico',
+                                'description': 'descricao_servico',
+                                'valor': 'valor_atendimento',
+                                'os': 'ordem_servico'
+                            }
+                            df_ent_csv.rename(columns=rename_map, inplace=True)
 
                             if 'data' in df_ent_csv.columns:
                                 df_ent_csv['data'] = pd.to_datetime(df_ent_csv['data'], dayfirst=True, errors='coerce')
@@ -500,6 +511,15 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                                 df_sai_csv = pd.read_csv(uploaded_file_sai, sep=None, engine='python', encoding='latin-1')
 
                             df_sai_csv.columns = df_sai_csv.columns.str.lower().str.strip()
+
+                            # Renomeia colunas comuns para o padrão do banco de dados
+                            rename_map_sai = {
+                                'descrição': 'descricao',
+                                'descriçao': 'descricao',
+                                'historico': 'descricao',
+                                'description': 'descricao'
+                            }
+                            df_sai_csv.rename(columns=rename_map_sai, inplace=True)
 
                             if 'data' in df_sai_csv.columns:
                                 df_sai_csv['data'] = pd.to_datetime(df_sai_csv['data'], dayfirst=True, errors='coerce')
