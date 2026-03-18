@@ -24,11 +24,13 @@ elif st.session_state["authentication_status"] is None:
 
 # Se chegou aqui, está logado:
 authenticator = None
-st.sidebar.image("logo.png", width=150)
-st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authentication_status": None}))
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from menu import exibir_menu
+exibir_menu()
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Fechamento Mensal", page_icon="💲", layout="centered")
+st.set_page_config(page_title="Fechamento Mensal", page_icon="💲", layout="wide")
 st.title("💲 Relatório de Fechamento por Cliente")
 
 # Conexão com o banco de dados
@@ -77,6 +79,36 @@ def enviar_pdf_por_email(destinatario, assunto, corpo, dados_pdf, nome_arquivo_p
         msg = EmailMessage()
         msg['Subject'], msg['From'], msg['To'] = assunto, remetente, destinatario
         msg.set_content(corpo)
+        
+        corpo_html = corpo.replace('\n', '<br>')
+        html_content = f"""\
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6;">
+                <p>{corpo_html}</p>
+                <br>
+                <table border="0" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; color: #333333; line-height: 1.4;">
+                    <tr>
+                        <td style="padding-right: 15px; border-right: 2px solid #cccccc;">
+                            <a href='https://postimg.cc/fVNyZqpf' target='_blank'>
+                                <img src='https://i.postimg.cc/fVNyZqpf/Whats-App-Image-2025-01-06-at-16-03-50.jpg' border='0' alt='Elite CNC Service' style='max-width: 140px; height: auto;'>
+                            </a>
+                        </td>
+                        <td style="padding-left: 15px;">
+                            <strong style="font-size: 16px;">Filipe Guimarães</strong><br>
+                            <span style="font-size: 14px; color: #666666;">Sócio Proprietário</span><br>
+                            <span style="font-size: 13px;">
+                            📞 WhatsApp: (11) 97761-7009<br>
+                            ✉️ elitecncservice@gmail.com<br>
+                            🌐 <a href="http://www.elitecncservice.com.br" style="color: #0056b3; text-decoration: none;">www.elitecncservice.com.br</a>
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+        </html>
+        """
+        msg.add_alternative(html_content, subtype='html')
+        
         msg.add_attachment(dados_pdf, maintype='application', subtype='pdf', filename=nome_arquivo_pdf)
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha)
@@ -266,12 +298,6 @@ Agradecemos a sua compreensão e parceria. Esta mudança visa proporcionar maior
 Qualquer dúvida ou necessidade de esclarecimento, estamos à disposição.
 
 Atenciosamente,
-
-Filipe Guimarães
-Sócio Proprietário
-WhatsApp: (11) 97761-7009
-elitecncservice@gmail.com
-http://www.elitecncservice.com.br
 """
 
     col1, col2 = st.columns(2)

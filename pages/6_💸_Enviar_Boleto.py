@@ -25,9 +25,9 @@ from menu import exibir_menu
 exibir_menu()
 
 # --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
-st.set_page_config(page_title="Enviar Nota Fiscal", page_icon="🧾", layout="wide")
-st.title("🧾 Enviar Nota Fiscal (NF)")
-st.markdown("Envie faturas e notas fiscais para seus clientes via E-mail e WhatsApp de forma rápida.")
+st.set_page_config(page_title="Enviar Boleto", page_icon="💸", layout="wide")
+st.title("💸 Enviar Boleto Bancário")
+st.markdown("Envie boletos de cobrança para seus clientes via E-mail e WhatsApp.")
 
 # Conexão com o banco de dados
 connection_url = st.secrets["database"]["connection_url"]
@@ -39,7 +39,8 @@ engine = create_engine(connection_url)
 def carregar_clientes():
     """Carrega os clientes do banco de dados para o selectbox."""
     try:
-        clientes_df = pd.read_sql_query(            "SELECT nome, email, telefone FROM clientes ORDER BY nome",
+        clientes_df = pd.read_sql_query(
+            "SELECT nome, email, telefone FROM clientes ORDER BY nome",
             engine
         )
         return clientes_df
@@ -47,8 +48,8 @@ def carregar_clientes():
         st.error(f"Erro ao carregar clientes: {e}")
         return pd.DataFrame(columns=['nome', 'email'])
 
-def enviar_email_com_anexo(destinatario, assunto, corpo, dados_anexo, nome_anexo):
-    """Envia um email com um anexo em PDF."""
+def enviar_email_com_anexos(destinatario, assunto, corpo, lista_anexos):
+    """Envia um email com múltiplos anexos em PDF."""
     try:
         remetente = st.secrets["email_credentials"]["username"]
         senha = st.secrets["email_credentials"]["password"]
@@ -88,14 +89,15 @@ def enviar_email_com_anexo(destinatario, assunto, corpo, dados_anexo, nome_anexo
         """
         msg.add_alternative(html_content, subtype='html')
         
-        # Adiciona o anexo
-        msg.add_attachment(dados_anexo, maintype='application', subtype='pdf', filename=nome_anexo)
+        # Adiciona os anexos
+        for anexo in lista_anexos:
+            msg.add_attachment(anexo['dados'], maintype='application', subtype='pdf', filename=anexo['nome'])
         
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha)
             smtp.send_message(msg)
             
-        st.success(f"Email com a Nota Fiscal enviado para {destinatario} com sucesso!")
+        st.success(f"Email com boleto(s) enviado para {destinatario} com sucesso!")
         return True
     except Exception as e:
         st.error(f"Erro ao enviar email: {e}")
@@ -129,7 +131,7 @@ else:
             sugestao_mes = get_sugestao_mes_anterior()
             mes_referencia = st.text_input("Mês/Ano de Referência", value=sugestao_mes, placeholder="Ex: Janeiro/2024")
 
-            uploaded_file = st.file_uploader("Anexe a Nota Fiscal (PDF)", type="pdf")
+            uploaded_files = st.file_uploader("Anexe o(s) Boleto(s) (PDF)", type="pdf", accept_multiple_files=True)
 
             if cliente_selecionado:
                 dados_cliente = df_clientes[df_clientes['nome'] == cliente_selecionado].iloc[0]
@@ -146,25 +148,23 @@ else:
 
     # --- COLUNA DA DIREITA: PRÉVIA E AÇÕES ---
     with col_right:
-        if cliente_selecionado and mes_referencia and uploaded_file and email_cliente:
+        if cliente_selecionado and mes_referencia and uploaded_files and email_cliente:
             with st.container(border=True):
                 st.subheader("2. Prévia e Envio")
                 
                 # Configuração do Email
-                assunto_padrao = f"Nota Fiscal de Serviços - {cliente_selecionado} - Ref. {mes_referencia}"
+                assunto_padrao = f"Boleto Bancário - {cliente_selecionado} - Ref. {mes_referencia}"
                 corpo_padrao = f"""Prezado(a) {cliente_selecionado},
 
-Esperamos que esta mensagem o encontre bem.
+Segue em anexo os boletos referente ao fechamento de {mes_referencia}.
 
-Segue em anexo a Nota Fiscal referente aos serviços prestados no período de {mes_referencia}.
-
-Agradecemos a parceria e confiança em nosso trabalho. Caso tenha qualquer dúvida ou necessite de informações adicionais sobre o faturamento, permanecemos à inteira disposição.
+Qualquer dúvida, estamos à disposição.
 
 Atenciosamente,
 """
                 st.markdown("##### 📧 Configuração do Email")
                 assunto = st.text_input("Assunto:", value=assunto_padrao)
-                corpo_email = st.text_area("Mensagem:", value=corpo_padrao, height=180)
+                corpo_email = st.text_area("Mensagem:", value=corpo_padrao, height=150)
 
                 st.markdown("---")
                 st.markdown("##### 🚀 Ações")
@@ -178,7 +178,7 @@ Atenciosamente,
                         if not numero_limpo.startswith('55'):
                             numero_limpo = '55' + numero_limpo
                         
-                        mensagem_whatsapp = f"Olá {cliente_selecionado}, tudo bem?\n\nEstou enviando a Nota Fiscal referente a *{mes_referencia}* para o seu e-mail.\n\nPor favor, verifique sua caixa de entrada.\n\nQualquer dúvida, estou à disposição."
+                        mensagem_whatsapp = f"Olá {cliente_selecionado}, tudo bem?\n\nEstou enviando os boletos referentes a *{mes_referencia}* para o seu e-mail.\n\nPor favor, verifique sua caixa de entrada."
                         mensagem_url = quote(mensagem_whatsapp)
                         link_whatsapp = f"https://wa.me/{numero_limpo}?text={mensagem_url}"
                         st.markdown(
@@ -192,7 +192,7 @@ Atenciosamente,
                 with c_act2:
                     # --- Botão Email ---
                     if st.button(f"✉️ Enviar Email", type="primary", use_container_width=True):
-                        pdf_bytes = uploaded_file.getvalue()
-                        enviar_email_com_anexo(email_cliente, assunto, corpo_email, pdf_bytes, uploaded_file.name)
-        elif not uploaded_file:
-            st.info("👈 Selecione um cliente e anexe o PDF da Nota Fiscal para habilitar o envio.")
+                        lista_anexos = [{'nome': f.name, 'dados': f.getvalue()} for f in uploaded_files]
+                        enviar_email_com_anexos(email_cliente, assunto, corpo_email, lista_anexos)
+        elif not uploaded_files:
+            st.info("👈 Selecione um cliente e anexe o(s) Boleto(s) para habilitar o envio.")

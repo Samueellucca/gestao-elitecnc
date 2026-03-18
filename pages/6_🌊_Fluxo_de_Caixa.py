@@ -15,8 +15,10 @@ if "authentication_status" not in st.session_state or not st.session_state["auth
     st.error("Acesso negado. Por favor, faça login na página inicial.")
     st.stop()
 
-st.sidebar.image("logo.png", width=150)
-st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authentication_status": None}))
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from menu import exibir_menu
+exibir_menu()
 
 def main():
     st.title("🌊 Fluxo de Caixa")

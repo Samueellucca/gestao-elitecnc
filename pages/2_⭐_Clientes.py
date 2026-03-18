@@ -18,8 +18,10 @@ elif st.session_state["authentication_status"] is None:
     st.stop()
 
 # Se chegou aqui, está logado:
-st.sidebar.image("logo.png", width=150)
-st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authentication_status": None}))
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from menu import exibir_menu
+exibir_menu()
 
 # --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
 st.set_page_config(page_title="Cadastro de Clientes", page_icon="⭐", layout="wide")

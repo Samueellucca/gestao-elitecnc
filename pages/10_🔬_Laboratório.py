@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
 from fpdf import FPDF
 import io
@@ -10,8 +10,10 @@ if "authentication_status" not in st.session_state or not st.session_state["auth
     st.error("Acesso negado. Por favor, faça login na página inicial.")
     st.stop()
 
-st.sidebar.image("logo.png", width=150)
-st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authentication_status": None}))
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from menu import exibir_menu
+exibir_menu()
 
 # --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
 st.set_page_config(page_title="Lançamento de Laboratório", page_icon="🔬", layout="wide")
@@ -36,8 +38,15 @@ def carregar_clientes():
 @st.cache_data(ttl=300)
 def carregar_lancamentos_recentes():
     """Carrega os 50 lançamentos de entrada mais recentes para gerenciamento."""
-    query = "SELECT id, data, ordem_servico, cliente, valor_atendimento, status, nome_tecnicos FROM entradas ORDER BY data DESC LIMIT 50"
+    query = "SELECT id, data, ordem_servico, cliente, valor_atendimento, valor_repasse_laboratorio, status, nome_tecnicos FROM entradas ORDER BY data DESC LIMIT 50"
     df = pd.read_sql_query(query, engine, parse_dates=['data'])
+    return df
+
+@st.cache_data(ttl=300)
+def carregar_repasses_filtrados(inicio, fim):
+    """Carrega os repasses filtrados por período."""
+    query = text("SELECT id, data, ordem_servico, cliente, valor_atendimento, valor_repasse_laboratorio FROM entradas WHERE data >= :inicio AND data <= :fim ORDER BY data DESC")
+    df = pd.read_sql_query(query, engine, params={"inicio": inicio, "fim": f"{fim} 23:59:59"}, parse_dates=['data'])
     return df
 
 
@@ -156,6 +165,7 @@ with col1:
     numero_serie_default = edit_data.get('patrimonio', '') if edit_data else ''
     valor_lab_default = float(edit_data.get('valor_laboratorio', 0.0)) if edit_data else 0.0
     pecas_default = float(edit_data.get('pecas', 0.0)) if edit_data else 0.0
+    valor_repasse_default = float(edit_data.get('valor_repasse_laboratorio', 0.0)) if edit_data else 0.0
 
     with st.form("form_laboratorio", clear_on_submit=(st.session_state.edit_lab_id is None)):
         st.subheader("📝 Detalhes do Serviço" if not edit_data else f"📝 Editando O.S. {os_id_default}")
@@ -183,12 +193,14 @@ with col1:
             descricao_servico = st.text_area("Descrição do Serviço Realizado", value=descricao_servico_default, height=100)
             
             
-            c_val1, c_val2 = st.columns(2)
+            c_val1, c_val2, c_val3 = st.columns(3)
             with c_val1:
                 valor_laboratorio = st.number_input("Mão de Obra (Laboratório)", min_value=0.0, format="%.2f", value=valor_lab_default)
             with c_val2:
                 pecas_utilizadas = st.number_input("Peças Utilizadas", min_value=0.0, format="%.2f", value=pecas_default)
-
+            with c_val3:
+                valor_repasse = st.number_input("Repasse (Parceria)", min_value=0.0, format="%.2f", value=valor_repasse_default, help="Valor para controle interno de repasse para parceiros. Não afeta o valor total para o cliente.")
+                
             submit_button_text = "💾 Salvar Alterações" if st.session_state.edit_lab_id else "✅ Lançar Serviço"
             submit_button = st.form_submit_button(submit_button_text, use_container_width=True, type="primary")
 
@@ -214,6 +226,7 @@ with col1:
                     'descricao_servico': descricao_completa,
                     'pecas': safe_number(pecas_utilizadas),
                     'valor_laboratorio': safe_number(valor_laboratorio),
+                    'valor_repasse_laboratorio': safe_number(valor_repasse),
                     'valor_atendimento': valor_total,
                     'status': 'Pendente', # O lançamento já entra como pendente de pagamento
                     'usuario_lancamento': st.session_state.get("username", "n/a"),
@@ -234,6 +247,7 @@ with col1:
                     try:
                         pd.DataFrame([dados_lancamento]).to_sql('entradas', engine, if_exists='append', index=False)
                         st.success(f"Serviço de laboratório para O.S. '{os_id}' lançado com sucesso!")
+                        st.cache_data.clear()
                     except Exception as e:
                         st.error(f"Ocorreu um erro ao salvar no banco de dados: {e}")
 
@@ -243,9 +257,10 @@ with col2:
         st.info(
             "**Fluxo de Trabalho:**\n\n"
             "1. Preencha os dados do serviço.\n"
-            "2. Valor Total = **Mão de Obra** + **Peças**.\n"
-            "3. Gera uma **entrada pendente**.\n"
-            "4. Baixe no **Controle Financeiro**."
+            "2. Valor Total (Cliente) = **Mão de Obra** + **Peças**.\n"
+            "3. O **Repasse** é para controle interno e não soma no total.\n"
+            "4. O lançamento gera uma **entrada pendente**.\n"
+            "5. A baixa do pagamento é feita no **Controle Financeiro**."
         )
 
     st.write("")
@@ -262,6 +277,38 @@ with col2:
         df_gerenciar = carregar_lancamentos_recentes()
 
         if not df_gerenciar.empty:
+            with st.expander("📊 Ver Tabela de Repasses (Controle Interno)"):
+                col_f1, col_f2 = st.columns(2)
+                data_inicial = col_f1.date_input("Data Inicial", value=datetime.now().date() - timedelta(days=30))
+                data_final = col_f2.date_input("Data Final", value=datetime.now().date())
+
+                df_repasses = carregar_repasses_filtrados(data_inicial, data_final)
+
+                st.dataframe(
+                    df_repasses[['data', 'ordem_servico', 'cliente', 'valor_atendimento', 'valor_repasse_laboratorio']],
+                    column_config={
+                        "data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
+                        "ordem_servico": "O.S.",
+                        "cliente": "Cliente",
+                        "valor_atendimento": st.column_config.NumberColumn("Total Cliente (R$)", format="R$ %.2f"),
+                        "valor_repasse_laboratorio": st.column_config.NumberColumn("Repasse (R$)", format="R$ %.2f"),
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                # Botão de Exportação para Excel
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_repasses[['data', 'ordem_servico', 'cliente', 'valor_atendimento', 'valor_repasse_laboratorio']].to_excel(writer, index=False, sheet_name='Repasses')
+                
+                st.download_button(
+                    label="📥 Baixar Tabela em Excel",
+                    data=buffer.getvalue(),
+                    file_name=f"Repasses_Laboratorio_{data_inicial.strftime('%Y%m%d')}_{data_final.strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
             # Ordena para garantir que o mais recente apareça primeiro na lista
             df_gerenciar['display'] = df_gerenciar.apply(
                 lambda row: f"{'✅' if row.get('status') == 'Pago' else '⏳'} {row['data'].strftime('%d/%m')} - {str(row.get('cliente') or 'N/A').split()[0]} - O.S. {row.get('ordem_servico', 'N/A')} (ID: {row['id']})",

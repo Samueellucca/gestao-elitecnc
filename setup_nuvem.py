@@ -91,6 +91,7 @@ try:
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_deslocamento NUMERIC(10, 2);"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS qtd_tecnicos INTEGER;"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_laboratorio NUMERIC(10, 2);"))
+            connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS valor_repasse_laboratorio NUMERIC(10, 2);"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS data_pagamento TIMESTAMP;"))
             connection.execute(text("ALTER TABLE saidas ADD COLUMN IF NOT EXISTS data_pagamento TIMESTAMP;"))
             connection.execute(text("ALTER TABLE entradas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Pendente';"))

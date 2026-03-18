@@ -137,11 +137,36 @@ authenticator = stauth.Authenticate(
     config['cookie']['expiry_days']
 )
 
-# --- TELA DE LOGIN ---
-# A lógica de login é chamada aqui, mas a interface do usuário é controlada abaixo
-authenticator.login() 
+if not st.session_state.get("authentication_status"):
+    # --- TELA DE LOGIN ---
+    # Injeta CSS para esconder o menu lateral nativo do Streamlit APENAS na tela de login
+    st.markdown("""
+        <style>
+            [data-testid="collapsedControl"] {display: none;}
+            section[data-testid="stSidebar"] {display: none;}
+            header[data-testid="stHeader"] {display: none;}
+            .block-container {padding-top: 5rem;}
+        </style>
+    """, unsafe_allow_html=True)
 
-if st.session_state["authentication_status"]:
+    # Cria colunas para desenhar um "cartão" centralizado para o login
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        with st.container(border=True): 
+            try:
+                st.image("logo.png", use_container_width=True)
+            except:
+                pass
+            st.markdown("<br>", unsafe_allow_html=True)
+            authenticator.login() 
+            
+            if st.session_state.get("authentication_status"):
+                st.rerun() # Força a entrada imediata no sistema, evitando o "piscar" de erros na tela
+            elif st.session_state.get("authentication_status") is False:
+                st.error('Usuário ou senha incorretos.')
+            elif st.session_state.get("authentication_status") is None:
+                st.warning('Por favor, insira seu usuário e senha para acessar.')
+else:
     # --- APLICAÇÃO PRINCIPAL (QUANDO LOGADO) ---
     # O código principal do seu dashboard vai aqui dentro.
     # Para manter a organização, vamos importar os módulos pesados apenas após o login.
@@ -201,9 +226,9 @@ if st.session_state["authentication_status"]:
     clientes_cadastrados = carregar_clientes()
 
     # --- BARRA LATERAL ---
-    st.sidebar.image("logo.png", width=150)
+    from menu import exibir_menu
+    exibir_menu(authenticator)
     st.sidebar.title(f'Bem-vindo(a), *{name}*')
-    authenticator.logout('Sair', 'sidebar')
 
     st.title("📊 Dashboard Financeiro")
 
@@ -214,20 +239,6 @@ if st.session_state["authentication_status"]:
 
     # --- ABAS PRINCIPAIS ---
     tab1, tab2 = st.tabs(["📊 Dashboard", "✍️ Lançamentos & Edição"])
-
-elif st.session_state["authentication_status"] is False:
-    # --- TELA DE LOGIN (SENHA INCORRETA) ---
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.image("logo.png", use_container_width=True)
-    st.error('Usuário/senha incorreto')
-
-elif st.session_state["authentication_status"] is None:
-    # --- TELA DE LOGIN (INICIAL) ---
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.image("logo.png", use_container_width=True)
-    st.warning('Por favor, insira seu usuário e senha para acessar.')
 
 
 
@@ -777,11 +788,13 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
             total_entradas = entradas_filtradas['valor_atendimento'].sum() if 'valor_atendimento' in entradas_filtradas.columns else 0
             total_saidas = saidas_filtradas['valor'].sum() if 'valor' in saidas_filtradas.columns else 0
             lucro_real = total_entradas - total_saidas
+            total_repasses = entradas_filtradas['valor_repasse_laboratorio'].sum() if 'valor_repasse_laboratorio' in entradas_filtradas.columns else 0
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             col1.metric("🟢 Total de Entradas", f"R$ {total_entradas:,.2f}")
             col2.metric("🔴 Total de Saídas", f"R$ {total_saidas:,.2f}")
             col3.metric("💰 Lucro Real", f"R$ {lucro_real:,.2f}")
+            col4.metric("🤝 Total Repasses", f"R$ {total_repasses:,.2f}", help="Valor destinado a parceiros (Laboratório).")
 
         # --- CONTAINER DE GRÁFICOS ---
         with st.container(border=True):
@@ -830,8 +843,26 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("Sem dados para exibir o balanço diário.")
+            
+            st.markdown("---")
+            st.markdown("##### 🤝 Evolução de Repasses (Laboratório)")
+            if not entradas_filtradas.empty and 'valor_repasse_laboratorio' in entradas_filtradas.columns:
+                # Agrupa por Mês/Ano
+                df_repasses = entradas_filtradas.copy()
+                df_repasses['mes_ano'] = df_repasses['data'].dt.to_period('M').astype(str)
+                repasses_mensais = df_repasses.groupby('mes_ano')['valor_repasse_laboratorio'].sum().reset_index()
+                
+                if not repasses_mensais.empty and repasses_mensais['valor_repasse_laboratorio'].sum() > 0:
+                    fig_rep = px.bar(repasses_mensais, x='mes_ano', y='valor_repasse_laboratorio', 
+                                     title="Total de Repasses por Mês", 
+                                     labels={'mes_ano': 'Mês', 'valor_repasse_laboratorio': 'Valor (R$)'},
+                                     text_auto='.2s')
+                    fig_rep.update_traces(marker_color='#ffaa00', hovertemplate='<b>%{x}</b><br>Repasse: R$ %{y:,.2f}<extra></extra>')
+                    st.plotly_chart(fig_rep, use_container_width=True)
+                else:
+                    st.info("Nenhum valor de repasse registrado no período.")
             else:
-                st.info("Sem dados para exibir o balanço diário.")
+                st.info("Sem dados de entradas para calcular repasses.")
 
         # --- CONTAINER DE EXPORTAÇÃO E TABELAS ---
         with st.container(border=True):
@@ -872,6 +903,7 @@ if "authentication_status" in st.session_state and st.session_state["authenticat
                 "pecas": st.column_config.NumberColumn("Peças (R$)", format="R$ %.2f"),
                 "pedagio": st.column_config.NumberColumn("Pedágio (R$)", format="R$ %.2f"),
                 "valor_laboratorio": st.column_config.NumberColumn("Laboratório (R$)", format="R$ %.2f"),
+                "valor_repasse_laboratorio": st.column_config.NumberColumn("Repasse Lab. (R$)", format="R$ %.2f"),
                 "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
                 "data": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY - HH:mm"), "status": "Status",
                 "descricao_servico": "Descrição do Serviço", "ordem_servico": "Nº O.S.", "cliente": "Cliente",

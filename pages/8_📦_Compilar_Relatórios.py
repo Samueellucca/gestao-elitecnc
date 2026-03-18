@@ -21,11 +21,13 @@ elif st.session_state["authentication_status"] is None:
     st.stop()
 
 # Se chegou aqui, está logado:
-st.sidebar.image("logo.png", width=150)
-st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"authentication_status": None}))
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from menu import exibir_menu
+exibir_menu()
 
 # --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
-st.set_page_config(page_title="Compilar Relatórios", page_icon="📦", layout="centered")
+st.set_page_config(page_title="Compilar Relatórios", page_icon="📦", layout="wide")
 st.title("📦 Compilar Relatórios de O.S.")
 st.write("Selecione um cliente e um período para juntar múltiplos relatórios de serviço em um único PDF.")
 
@@ -153,6 +155,35 @@ def enviar_email_com_anexos(destinatario, assunto, corpo, anexos):
         msg['Subject'], msg['From'], msg['To'] = assunto, remetente, destinatario
         msg.set_content(corpo)
 
+        corpo_html = corpo.replace('\n', '<br>')
+        html_content = f"""\
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6;">
+                <p>{corpo_html}</p>
+                <br>
+                <table border="0" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; color: #333333; line-height: 1.4;">
+                    <tr>
+                        <td style="padding-right: 15px; border-right: 2px solid #cccccc;">
+                            <a href='https://postimg.cc/fVNyZqpf' target='_blank'>
+                                <img src='https://i.postimg.cc/fVNyZqpf/Whats-App-Image-2025-01-06-at-16-03-50.jpg' border='0' alt='Elite CNC Service' style='max-width: 140px; height: auto;'>
+                            </a>
+                        </td>
+                        <td style="padding-left: 15px;">
+                            <strong style="font-size: 16px;">Filipe Guimarães</strong><br>
+                            <span style="font-size: 14px; color: #666666;">Sócio Proprietário</span><br>
+                            <span style="font-size: 13px;">
+                            📞 WhatsApp: (11) 97761-7009<br>
+                            ✉️ elitecncservice@gmail.com<br>
+                            🌐 <a href="http://www.elitecncservice.com.br" style="color: #0056b3; text-decoration: none;">www.elitecncservice.com.br</a>
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+        </html>
+        """
+        msg.add_alternative(html_content, subtype='html')
+
         # Adiciona múltiplos anexos
         for anexo in anexos:
             msg.add_attachment(anexo['data'], maintype='application', subtype='pdf', filename=anexo['name'])
@@ -268,13 +299,8 @@ else:
                         f"Conforme solicitado, segue em anexo o arquivo PDF consolidado com todas as Ordens de Serviço (O.S.) relacionadas ao período de "
                         f"{data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}.\n\n"
                         "Este documento reúne os detalhes de cada atendimento realizado para sua referência e controle.\n\n"
-                        "Caso tenha qualquer dúvida ou necessite de esclarecimentos adicionais, permanecemos à sua inteira disposição.\n\n"
-                        "Atenciosamente,\n\n"
-                        "Filipe Guimarães\n"
-                        "Sócio Proprietário\n"
-                        "WhatsApp: (11) 97761-7009\n"
-                        "elitecncservice@gmail.com\n"
-                        "http://www.elitecncservice.com.br"
+                    "Caso tenha qualquer dúvida ou necessite de esclarecimentos adicionais, permanecemos à sua inteira disposição.\n\n"
+                    "Atenciosamente,"
                     )
 
                     # Prepara a lista de anexos
