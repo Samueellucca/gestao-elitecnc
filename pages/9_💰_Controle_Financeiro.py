@@ -8,6 +8,9 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import create_engine, text
 from dateutil.relativedelta import relativedelta
 
+# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
+st.set_page_config(page_title="Controle Financeiro", page_icon="💰", layout="wide")
+
 # --- VERIFICAÇÃO DE LOGIN ---
 if "authentication_status" not in st.session_state or not st.session_state["authentication_status"]:
     st.error("Acesso negado. Por favor, faça login na página inicial.")
@@ -18,8 +21,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from menu import exibir_menu
 exibir_menu()
 
-# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
-st.set_page_config(page_title="Controle Financeiro", page_icon="💰", layout="wide")
 st.title("💰 Controle Financeiro")
 st.markdown("Gerencie suas contas a pagar e receber, realize baixas e negociações de forma centralizada.")
 

@@ -3,6 +3,9 @@ import pandas as pd
 from datetime import datetime
 from sqlalchemy import create_engine, text
 
+# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
+st.set_page_config(page_title="Controle de Estoque", page_icon="📦", layout="wide")
+
 # --- VERIFICAÇÃO DE LOGIN ---
 if "authentication_status" not in st.session_state or not st.session_state["authentication_status"]:
     st.error("Acesso negado. Por favor, faça login na página inicial.")
@@ -11,8 +14,6 @@ if "authentication_status" not in st.session_state or not st.session_state["auth
 from menu import exibir_menu
 exibir_menu()
 
-# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
-st.set_page_config(page_title="Controle de Estoque", page_icon="📦", layout="wide")
 st.title("📦 Controle de Estoque")
 
 connection_url = st.secrets["database"]["connection_url"]

@@ -6,6 +6,9 @@ from yaml.loader import SafeLoader
 import pandas as pd
 from sqlalchemy import create_engine, text
 
+# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
+st.set_page_config(page_title="Cadastro de Clientes", page_icon="⭐", layout="wide")
+
 # --- VERIFICAÇÃO DE LOGIN ---
 if "authentication_status" not in st.session_state:
     st.error("Por favor, faça login na página inicial.")
@@ -23,8 +26,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from menu import exibir_menu
 exibir_menu()
 
-# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
-st.set_page_config(page_title="Cadastro de Clientes", page_icon="⭐", layout="wide")
 st.title("⭐ Cadastro de Clientes")
 
 # Conexão com o banco de dados da nuvem a partir dos "Secrets"

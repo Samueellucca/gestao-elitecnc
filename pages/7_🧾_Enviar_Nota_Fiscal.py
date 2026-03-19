@@ -7,6 +7,9 @@ from urllib.parse import quote
 import smtplib
 from datetime import datetime, timedelta
 
+# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
+st.set_page_config(page_title="Enviar Nota Fiscal", page_icon="🧾", layout="wide")
+
 # --- VERIFICAÇÃO DE LOGIN ---
 if "authentication_status" not in st.session_state:
     st.error("Por favor, faça login na página inicial.")
@@ -24,8 +27,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from menu import exibir_menu
 exibir_menu()
 
-# --- CONFIGURAÇÃO DA PÁGINA E CONEXÃO COM DB ---
-st.set_page_config(page_title="Enviar Nota Fiscal", page_icon="🧾", layout="wide")
 st.title("🧾 Enviar Nota Fiscal (NF)")
 st.markdown("Envie faturas e notas fiscais para seus clientes via E-mail e WhatsApp de forma rápida.")
 

@@ -11,6 +11,9 @@ import re
 import smtplib
 from email.message import EmailMessage
 
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="Fechamento Mensal", page_icon="💲", layout="wide")
+
 # --- VERIFICAÇÃO DE LOGIN ---
 if "authentication_status" not in st.session_state:
     st.error("Por favor, faça login na página inicial.")
@@ -29,8 +32,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from menu import exibir_menu
 exibir_menu()
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Fechamento Mensal", page_icon="💲", layout="wide")
 st.title("💲 Relatório de Fechamento por Cliente")
 
 # Conexão com o banco de dados
